@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cli2mcp"
+version = "0.1.0"
+description = "Generate annotated MCP server functions from CLI tools"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov"]
+
+[project.scripts]
+cli2mcp = "cli2mcp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cli2mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Example [tool.cli2mcp] config — copy to your project's pyproject.toml and customize:
+# [tool.cli2mcp]
+# server_name = "My MCP Server"
+# entry_point = "mycli"
+# source_dirs = ["src/mypackage"]
+# output_file = "mcp_server.py"
+# include_patterns = ["*.py"]
+# exclude_patterns = ["test_*", "_*"]

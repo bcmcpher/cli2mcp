@@ -1,0 +1,179 @@
+"""Tests for the MCP server code generator."""
+import pytest
+from pathlib import Path
+from cli2mcp.models import ParamDef, ToolDef
+from cli2mcp.config import Config
+from cli2mcp.generators.mcp_server import generate_server
+
+
+@pytest.fixture
+def sample_config():
+    return Config(
+        server_name="Test Server",
+        entry_point="mytool",
+        source_dirs=[Path("src")],
+        output_file=Path("mcp_server.py"),
+    )
+
+
+@pytest.fixture
+def simple_tool():
+    return ToolDef(
+        name="greet",
+        description="Greet a user.",
+        parameters=[
+            ParamDef(
+                name="name",
+                cli_flags=["name"],
+                type_annotation="str",
+                default=None,
+                required=True,
+                description="The name of the person.",
+            ),
+            ParamDef(
+                name="count",
+                cli_flags=["--count", "-c"],
+                type_annotation="int",
+                default=1,
+                required=False,
+                description="Number of greetings.",
+            ),
+            ParamDef(
+                name="loud",
+                cli_flags=["--loud"],
+                type_annotation="bool",
+                default=False,
+                required=False,
+                description="Print in uppercase.",
+                is_flag=True,
+            ),
+        ],
+        return_description="The greeting message.",
+        source_module="mypackage.cli",
+        source_function="greet",
+        cli_command="mytool",
+        cli_subcommand="greet",
+        framework="click",
+    )
+
+
+def test_generate_produces_string(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert isinstance(result, str)
+
+
+def test_generate_contains_fastmcp_import(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "from mcp.server.fastmcp import FastMCP" in result
+
+
+def test_generate_contains_server_name(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert 'FastMCP("Test Server")' in result
+
+
+def test_generate_contains_tool_decorator(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "@mcp.tool()" in result
+
+
+def test_generate_contains_function_name(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "def greet(" in result
+
+
+def test_generate_contains_required_param(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "name: str" in result
+
+
+def test_generate_contains_optional_param_default(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "count: int = 1" in result
+
+
+def test_generate_contains_flag_param(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "loud: bool = False" in result
+
+
+def test_generate_contains_subprocess(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "subprocess.run(" in result
+
+
+def test_generate_contains_cli_command(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "'mytool'" in result
+
+
+def test_generate_contains_subcommand(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "'greet'" in result
+
+
+def test_generate_contains_flag_conditional(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "if loud" in result
+
+
+def test_generate_contains_option_flag(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "'--count'" in result
+
+
+def test_generate_contains_main_block(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert 'if __name__ == "__main__"' in result
+    assert "mcp.run()" in result
+
+
+def test_generate_no_params_tool(sample_config):
+    tool = ToolDef(
+        name="ping",
+        description="Ping the service.",
+        parameters=[],
+        return_description="Pong.",
+        source_module="mypackage.cli",
+        source_function="ping",
+        cli_command="mytool",
+        cli_subcommand="ping",
+        framework="click",
+    )
+    result = generate_server([tool], sample_config)
+    assert "def ping()" in result
+
+
+def test_generate_direct_import_comment(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "# from mypackage.cli import greet" in result
+
+
+def test_generate_multiple_tools(sample_config, simple_tool):
+    tool2 = ToolDef(
+        name="farewell",
+        description="Say goodbye.",
+        parameters=[],
+        return_description="Goodbye message.",
+        source_module="mypackage.cli",
+        source_function="farewell",
+        cli_command="mytool",
+        cli_subcommand="farewell",
+        framework="click",
+    )
+    result = generate_server([simple_tool, tool2], sample_config)
+    assert "def greet(" in result
+    assert "def farewell(" in result
+
+
+def test_generate_returns_section(sample_config, simple_tool):
+    result = generate_server([simple_tool], sample_config)
+    assert "Returns" in result
+    assert "The greeting message." in result
+
+
+def test_generate_valid_python_syntax(sample_config, simple_tool):
+    import ast
+    result = generate_server([simple_tool], sample_config)
+    # Should not raise SyntaxError
+    ast.parse(result)
