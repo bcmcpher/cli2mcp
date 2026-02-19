@@ -1,0 +1,291 @@
+# cli2mcp
+
+**Generate a working MCP server from your existing Python CLI — no manual wiring needed.**
+
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## What it does
+
+`cli2mcp` reads your existing Click or argparse CLI source code **without importing it** (AST-only, no side effects). It extracts commands, options, types, and NumPy docstrings, then writes a standalone `mcp_server.py` that delegates back to your CLI via `subprocess.run()`.
+
+```
+your CLI source  →  cli2mcp  →  mcp_server.py  →  MCP host (Claude, Inspector, etc.)
+     (AST)           (scrape + render)   (FastMCP + subprocess)
+```
+
+---
+
+## Installation
+
+```bash
+pip install cli2mcp
+# or in-project dev install:
+pip install -e "path/to/cli2mcp[dev]"
+```
+
+> **Note:** `mcp` (FastMCP) is a dependency of the **generated** server, not of `cli2mcp` itself. Install it in the environment where the generated server will run:
+>
+> ```bash
+> pip install mcp
+> ```
+
+---
+
+## Quick start
+
+### Step 1 — Add config to your project's `pyproject.toml`
+
+```toml
+[tool.cli2mcp]
+server_name = "My Project MCP Server"
+entry_point = "myapp"           # the CLI command name on PATH
+source_dirs = ["src/mypackage"] # directories to scan
+output_file = "mcp_server.py"  # where to write the generated file
+```
+
+### Step 2 — Generate the server
+
+```bash
+cli2mcp generate
+```
+
+### Step 3 — Run it
+
+```bash
+python mcp_server.py
+# or via MCP inspector:
+mcp dev mcp_server.py
+```
+
+---
+
+## Writing CLI code that `cli2mcp` understands
+
+### Click example
+
+```python
+import click
+
+@click.group()
+def cli():
+    """Main CLI group."""
+
+@cli.command()
+@click.argument("name")
+@click.option("--count", "-c", type=int, default=1, help="Number of greetings.")
+@click.option("--loud", is_flag=True, default=False, help="Print in uppercase.")
+def greet(name: str, count: int, loud: bool) -> None:
+    """Greet a user by name.
+
+    Parameters
+    ----------
+    name : str
+        The name of the person to greet.
+    count : int
+        How many times to repeat the greeting.
+    loud : bool
+        Whether to shout the greeting.
+
+    Returns
+    -------
+    str
+        The greeting message(s).
+    """
+    for _ in range(count):
+        msg = f"Hello, {name}!"
+        if loud:
+            msg = msg.upper()
+        click.echo(msg)
+```
+
+If you omit the `Parameters` section, `cli2mcp` falls back to the `help=` string from each decorator.
+
+### argparse example
+
+```python
+import argparse
+
+def run_convert(args=None):
+    """Convert files between formats.
+
+    Parameters
+    ----------
+    args : list, optional
+        Command line arguments (for testing).
+
+    Returns
+    -------
+    str
+        Conversion result summary.
+    """
+    parser = argparse.ArgumentParser(prog="convert", description="Convert files between formats.")
+    parser.add_argument("input", type=str, help="Input file path.")
+    parser.add_argument("output", type=str, help="Output file path.")
+    parser.add_argument("--format", "-f", type=str, default="json", help="Output format.")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output.")
+    parsed = parser.parse_args(args)
+    return f"Converting {parsed.input} to {parsed.output}"
+```
+
+The `prog=` argument on `ArgumentParser` is used as the CLI subcommand name.
+
+### NumPy docstring format reference
+
+```python
+"""One-line summary.
+
+Parameters
+----------
+name : str
+    Description of name.
+count : int
+    Description of count.
+
+Returns
+-------
+str
+    Description of what is returned.
+"""
+```
+
+---
+
+## Configuration reference
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `server_name` | yes | — | Name passed to `FastMCP(...)` |
+| `entry_point` | yes | — | CLI command name on PATH |
+| `source_dirs` | yes | — | List of dirs to scan |
+| `output_file` | no | `mcp_server.py` | Where to write the output |
+| `include_patterns` | no | `["*.py"]` | Glob patterns to include |
+| `exclude_patterns` | no | `["test_*", "_*"]` | Glob patterns to exclude |
+
+---
+
+## CLI reference
+
+```
+cli2mcp generate [--config FILE] [--output FILE] [--dry-run]
+cli2mcp list    [--config FILE]
+cli2mcp validate FILE
+```
+
+- **`generate`** — Scrape source dirs and write the MCP server file. Use `--dry-run` to print to stdout instead of writing. Use `--output` to override the output path from config.
+- **`list`** — Verify what tools were discovered without generating any files. Run this first to confirm `cli2mcp` found what you expect.
+- **`validate FILE`** — Parse-check a generated server file for syntax errors (runs `ast.parse` without importing).
+
+---
+
+## What the generated file looks like
+
+For the `greet` command above, `cli2mcp generate` produces:
+
+```python
+"""MCP server generated by cli2mcp v0.1.0
+Source: src/mypackage
+Generated: 2026-01-01 00:00:00 UTC
+
+Regenerate with: cli2mcp generate
+"""
+from __future__ import annotations
+
+import subprocess
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("My Project MCP Server")
+
+
+@mcp.tool()
+def greet(name: str, count: int = 1, loud: bool = False) -> str:
+    """Greet a user by name.
+
+    Parameters
+    ----------
+    name : str
+        The name of the person to greet.
+    count : int
+        How many times to repeat the greeting.
+    loud : bool
+        Whether to shout the greeting.
+
+    Returns
+    -------
+    str
+        The greeting message(s).
+    """
+    result = subprocess.run(
+        [
+            "myapp",       # entry_point from config
+            "greet",       # CLI subcommand name
+            str(name),     # positional argument
+            "--count", str(count),
+            *(['--loud'] if loud else []),  # is_flag: only pass when True
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"CLI command failed:\n{result.stderr}")
+    return result.stdout
+
+    # Direct import alternative (uncomment if greet returns a value):
+    # from mypackage.commands import greet
+    # return greet(name=name, count=count, loud=loud)
+
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+The subprocess call builds the exact command your CLI expects. The commented direct-import alternative lets you bypass subprocess if your function returns a value directly.
+
+---
+
+## Running & connecting the server
+
+**Run directly:**
+```bash
+python mcp_server.py
+```
+
+**MCP inspector:**
+```bash
+mcp dev mcp_server.py
+```
+
+**Claude Desktop** — add to your `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "my-project": {
+      "command": "python",
+      "args": ["/path/to/your/project/mcp_server.py"]
+    }
+  }
+}
+```
+
+---
+
+## How AI agents can use this tool
+
+1. Add `[tool.cli2mcp]` to the project's `pyproject.toml` with the correct `entry_point` and `source_dirs`.
+2. Run `cli2mcp list` to verify which tools were discovered and confirm names and parameter counts look right.
+3. Run `cli2mcp generate` to produce `mcp_server.py`.
+4. Run `cli2mcp validate mcp_server.py` as a sanity check — confirms the file is valid Python.
+5. Register the server with the MCP host using the `python mcp_server.py` invocation.
+
+The `--dry-run` flag on `generate` lets an agent preview the output before writing, and `list` makes it easy to detect misconfigured `source_dirs` before wasting a generation step.
+
+---
+
+## Limitations
+
+- **Python 3.11+ required** (`tomllib` is stdlib from 3.11; older versions need `tomli` installed separately).
+- **Click and argparse only** — Typer, Fire, and other frameworks are not supported.
+- **Tools always return `str`** (stdout of the subprocess). If your function returns a structured value, uncomment the direct-import alternative in the generated file and adapt it.
+- **CLI must be on PATH** — the generated server delegates via `subprocess.run()`, so your CLI entry point must be installed and accessible in the same environment where `mcp_server.py` runs.
