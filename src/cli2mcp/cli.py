@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 
 from cli2mcp.config import load_config
-from cli2mcp.generators.mcp_server import generate_server
+from cli2mcp.generators.mcp_server import generate_module, generate_server_scaffold
 from cli2mcp.models import ToolDef
 from cli2mcp.scrapers.argparse_scraper import ArgparseScraper
 from cli2mcp.scrapers.click_scraper import ClickScraper
@@ -94,7 +94,7 @@ def main() -> None:
     help="Print the generated file to stdout instead of writing it.",
 )
 def generate(config_path: Path, output_path: Path | None, dry_run: bool) -> None:
-    """Generate an MCP server file from CLI tools."""
+    """Generate an MCP tools module and (once) a server scaffold from CLI tools."""
     try:
         tools, config = _collect_tools(config_path)
     except (FileNotFoundError, ValueError) as exc:
@@ -105,14 +105,24 @@ def generate(config_path: Path, output_path: Path | None, dry_run: bool) -> None
         click.echo("No CLI tools discovered. Check your source_dirs and patterns.", err=True)
         sys.exit(1)
 
-    content = generate_server(tools, config)
-
     dest = output_path or config.output_file
+    module_stem = dest.stem
+    module_content = generate_module(tools, config)
+    scaffold_content = generate_server_scaffold(config, module_stem)
+
     if dry_run:
-        click.echo(content)
+        click.echo(f"# ===== Generated module: {dest.name} =====")
+        click.echo(module_content)
+        click.echo(f"# ===== Server scaffold: {config.server_file.name} (only written if not present) =====")
+        click.echo(scaffold_content)
     else:
-        dest.write_text(content, encoding="utf-8")
+        dest.write_text(module_content, encoding="utf-8")
         click.echo(f"Generated {dest} with {len(tools)} tool(s).")
+        if not config.server_file.exists():
+            config.server_file.write_text(scaffold_content, encoding="utf-8")
+            click.echo(f"Created server scaffold: {config.server_file}")
+        else:
+            click.echo(f"Skipped {config.server_file} (already exists).")
 
 
 @main.command(name="list")
