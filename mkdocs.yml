@@ -1,0 +1,79 @@
+site_name: cli2mcp
+site_description: Generate a working MCP server from your existing Python CLI — no manual wiring needed.
+site_url: https://bcmcpher.github.io/cli2mcp/
+repo_url: https://github.com/bcmcpher/cli2mcp
+repo_name: bcmcpher/cli2mcp
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+            show_symbol_type_heading: true
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+  - User Guide:
+    - CLI Reference: user-guide/cli-reference.md
+    - Writing CLI Code: user-guide/writing-clis.md
+    - Generated Output: user-guide/generated-output.md
+    - Deployment: user-guide/deployment.md
+  - API Reference:
+    - Models: reference/models.md
+    - Config: reference/config.md
+    - Scrapers: reference/scrapers.md
+    - Parsers: reference/parsers.md
+    - Generator: reference/generators.md
+  - Architecture: architecture.md
+  - Contributing: contributing.md

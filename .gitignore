@@ -63,3 +63,6 @@ dmypy.json
 # Generated output
 mcp_server.py
 mcp_tools.py
+
+# MkDocs build output
+site/
