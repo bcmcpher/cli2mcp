@@ -72,7 +72,12 @@ Generated mcp_tools_generated.py with 3 tool(s).
 Created server scaffold: mcp_server.py
 ```
 
-On subsequent runs only `mcp_tools_generated.py` is updated; `mcp_server.py` is left untouched so your customisations are safe.
+On subsequent runs only `mcp_tools_generated.py` is updated; `mcp_server.py` is left untouched:
+
+```
+Generated mcp_tools_generated.py with 3 tool(s).
+Skipped mcp_server.py (already exists).
+```
 
 Use `--dry-run` to preview the output without writing:
 

@@ -109,4 +109,4 @@ cli2mcp validate mcp_server.py
 |----------|-------------|
 | `FILE` | Path to the Python file to validate (must exist). |
 
-Exits with code `0` and prints `OK` if the file parses cleanly; exits with code `1` and prints the syntax error otherwise.
+Exits with code `0` and prints `{file}: OK (syntax valid)` if the file parses cleanly; exits with code `1` and prints the syntax error otherwise.
