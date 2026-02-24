@@ -27,6 +27,7 @@ Add custom tools to mcp_server.py instead.
 from __future__ import annotations
 
 import subprocess
+from typing import Any
 '''
 
 _SERVER_SCAFFOLD = '''\
@@ -59,11 +60,18 @@ if __name__ == "__main__":
 '''
 
 
-def _format_param_sig(params: list[ParamDef]) -> str:
-    """Format function signature parameters."""
+def _format_param_sig(params: list[ParamDef], has_context: bool = False) -> str:
+    """Format function signature parameters, skipping hidden and context params."""
+    visible = [p for p in params if not p.hidden]
+    # 1b: if function uses @click.pass_context, skip the first argument
+    # (the ctx param is added by Click and must not appear in the MCP signature)
+    if has_context and visible:
+        visible = visible[1:]
+
+    # 3d: stdin param handled separately — skip it from the normal param list
     parts: list[str] = []
-    required = [p for p in params if p.required]
-    optional = [p for p in params if not p.required]
+    required = [p for p in visible if p.required]
+    optional = [p for p in visible if not p.required]
     for p in required + optional:
         if p.required:
             parts.append(f"{p.name}: {p.type_annotation}")
@@ -79,33 +87,48 @@ def _format_param_sig(params: list[ParamDef]) -> str:
     return ", ".join(parts)
 
 
-def _format_param_docs(params: list[ParamDef]) -> str:
+def _format_param_docs(params: list[ParamDef], has_context: bool = False) -> str:
     """Format NumPy-style parameter documentation block."""
-    if not params:
+    visible = [p for p in params if not p.hidden]
+    if has_context and visible:
+        visible = visible[1:]
+    if not visible:
         return ""
     lines = ["    Parameters", "    ----------"]
-    for p in params:
+    for p in visible:
         lines.append(f"    {p.name} : {p.type_annotation}")
         desc = p.description or f"The {p.name} parameter."
         if p.choices:
             desc = f"{desc} Choices: {', '.join(p.choices)}."
+        if p.mutually_exclusive_group:
+            desc = f"{desc} (mutually exclusive with others in group '{p.mutually_exclusive_group}')"
         lines.append(f"        {desc}")
     return "\n".join(lines) + "\n"
 
 
-def _build_direct_import_kwargs(params: list[ParamDef]) -> str:
-    return ", ".join(f"{p.name}={p.name}" for p in params)
+def _build_direct_import_kwargs(params: list[ParamDef], has_context: bool = False) -> str:
+    visible = [p for p in params if not p.hidden]
+    if has_context and visible:
+        visible = visible[1:]
+    return ", ".join(f"{p.name}={p.name}" for p in visible)
 
 
-def _render_tool(tool: ToolDef, subprocess_timeout: int | None = None) -> str:
+def _render_tool(tool: ToolDef, config: "Config") -> str:
     """Render a single @mcp.tool() function (top-level, unindented)."""
-    params_sig = _format_param_sig(tool.parameters)
-    param_docs_section = _format_param_docs(tool.parameters)
+    params_sig = _format_param_sig(tool.parameters, tool.has_context)
+    # 3d: append stdin parameter if configured
+    if tool.stdin_param:
+        stdin_sig = f"{tool.stdin_param}: str = ''"
+        params_sig = f"{params_sig}, {stdin_sig}" if params_sig else stdin_sig
 
+    param_docs_section = _format_param_docs(tool.parameters, tool.has_context)
     if param_docs_section:
         param_docs_section = "\n" + param_docs_section
 
-    kwargs_str = _build_direct_import_kwargs(tool.parameters)
+    kwargs_str = _build_direct_import_kwargs(tool.parameters, tool.has_context)
+
+    # 3a: use the tool's specific return type if set, otherwise fall back to str
+    return_type = tool.return_type if tool.return_type else "str"
 
     body_lines = [
         "    result = subprocess.run(",
@@ -115,11 +138,21 @@ def _render_tool(tool: ToolDef, subprocess_timeout: int | None = None) -> str:
     # Command parts
     if tool.cli_command:
         body_lines.append(f"            {repr(tool.cli_command)},")
-    if tool.cli_subcommand and tool.cli_subcommand != tool.cli_command:
+
+    # 1d: use subcommand_path if available (nested groups), else fall back to cli_subcommand
+    if tool.subcommand_path:
+        for sub in tool.subcommand_path:
+            body_lines.append(f"            {repr(sub)},")
+    elif tool.cli_subcommand and tool.cli_subcommand != tool.cli_command:
         body_lines.append(f"            {repr(tool.cli_subcommand)},")
 
-    positional_params = [p for p in tool.parameters if not any(f.startswith("-") for f in p.cli_flags)]
-    option_params = [p for p in tool.parameters if any(f.startswith("-") for f in p.cli_flags)]
+    # 1e: only emit non-hidden params; 1b: skip ctx param (it's not a real CLI param)
+    visible_params = [p for p in tool.parameters if not p.hidden]
+    if tool.has_context and visible_params:
+        visible_params = visible_params[1:]
+
+    positional_params = [p for p in visible_params if not any(f.startswith("-") for f in p.cli_flags)]
+    option_params = [p for p in visible_params if any(f.startswith("-") for f in p.cli_flags)]
 
     for p in positional_params:
         if p.is_multiple:
@@ -137,7 +170,9 @@ def _render_tool(tool: ToolDef, subprocess_timeout: int | None = None) -> str:
         else:
             body_lines.append(f"            {repr(flag)}, str({p.name}),")
 
-    timeout_line = f"        timeout={subprocess_timeout}," if subprocess_timeout is not None else ""
+    # 3c: per-tool timeout overrides global; fall back to config global
+    effective_timeout = tool.timeout if tool.timeout is not None else config.subprocess_timeout
+    timeout_line = f"        timeout={effective_timeout}," if effective_timeout is not None else ""
 
     body_lines += [
         "        ],",
@@ -147,11 +182,32 @@ def _render_tool(tool: ToolDef, subprocess_timeout: int | None = None) -> str:
     ]
     if timeout_line:
         body_lines.append(timeout_line)
+
+    # 3d: pipe stdin if configured
+    if tool.stdin_param:
+        body_lines.append(f"        input={tool.stdin_param},")
+
+    body_lines.append("    )")
+
+    # 3b: improved error message includes both stdout and stderr
     body_lines += [
-        "    )",
         "    if result.returncode != 0:",
-        r'        raise RuntimeError(f"CLI command failed:\n{result.stderr}")',
-        "    return result.stdout",
+        r'        raise RuntimeError(',
+        r'            f"CLI command failed (exit {result.returncode}):\n"',
+        r'            f"stdout: {result.stdout}\nstderr: {result.stderr}"',
+        r'        )',
+    ]
+
+    # 3b: capture_stderr — include non-empty stderr in successful output
+    if config.capture_stderr:
+        body_lines += [
+            "    _stderr = result.stderr.strip()",
+            '    return result.stdout + (f"\\n--- stderr ---\\n{_stderr}" if _stderr else "")',
+        ]
+    else:
+        body_lines.append("    return result.stdout")
+
+    body_lines += [
         "",
         f"    # Direct import alternative (uncomment if {tool.source_function} returns a value):",
         f"    # from {tool.source_module} import {tool.source_function}",
@@ -166,14 +222,17 @@ def _render_tool(tool: ToolDef, subprocess_timeout: int | None = None) -> str:
     summary = tool.description or f"Run {tool.name}"
     return_desc = tool.return_description or "Command output"
 
+    # 3a: if prefer_direct_import, use the richer return type in the signature
+    sig_return = return_type if config.prefer_direct_import else "str"
+
     return (
         f"\n\n@mcp.tool()\n"
-        f"def {tool.name}({params_sig}) -> str:\n"
+        f"def {tool.name}({params_sig}) -> {sig_return}:\n"
         f'    """{summary}\n'
         f"{param_docs_section}"
         f"    Returns\n"
         f"    -------\n"
-        f"    str\n"
+        f"    {sig_return}\n"
         f"        {return_desc}\n"
         f'    """\n'
         f"{body}\n"
@@ -193,7 +252,7 @@ def generate_module(tools: list[ToolDef], config: "Config") -> str:
 
     tool_blocks = []
     for tool in tools:
-        rendered = _render_tool(tool, config.subprocess_timeout).strip()
+        rendered = _render_tool(tool, config).strip()
         indented = textwrap.indent(rendered, "    ")
         tool_blocks.append("\n\n" + indented)
 

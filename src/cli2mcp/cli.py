@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import fnmatch
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -17,11 +18,18 @@ from cli2mcp.scrapers.argparse_scraper import ArgparseScraper
 from cli2mcp.scrapers.click_scraper import ClickScraper
 
 
-def _collect_tools(config_path: Path) -> tuple[list[ToolDef], object]:
-    """Load config and scrape all tools from source_dirs."""
+def _collect_tools(
+    config_path: Path,
+) -> tuple[list[ToolDef], object, list[tuple[Path, str]]]:
+    """Load config and scrape all tools from source_dirs.
+
+    Returns (tools, config, skipped_files) where skipped_files is a list of
+    (path, reason) pairs for files that were not processed (7b).
+    """
     config = load_config(config_path)
 
     tools: list[ToolDef] = []
+    skipped: list[tuple[Path, str]] = []  # 7b
 
     for source_dir in config.source_dirs:
         if not source_dir.exists():
@@ -31,11 +39,23 @@ def _collect_tools(config_path: Path) -> tuple[list[ToolDef], object]:
         py_files = list(source_dir.rglob("*.py"))
 
         for py_file in py_files:
-            rel_name = py_file.name
+            # 6a: match against relative path from source_dir, not just filename
+            try:
+                rel_path = py_file.relative_to(source_dir)
+            except ValueError:
+                rel_path = Path(py_file.name)
+            rel_str = str(rel_path)
+            rel_name = py_file.name  # backward-compat for simple name patterns
 
-            # Apply include/exclude patterns
-            included = any(fnmatch.fnmatch(rel_name, pat) for pat in config.include_patterns)
-            excluded = any(fnmatch.fnmatch(rel_name, pat) for pat in config.exclude_patterns)
+            # Apply include/exclude patterns against both rel_str and rel_name
+            included = any(
+                fnmatch.fnmatch(rel_str, pat) or fnmatch.fnmatch(rel_name, pat)
+                for pat in config.include_patterns
+            )
+            excluded = any(
+                fnmatch.fnmatch(rel_str, pat) or fnmatch.fnmatch(rel_name, pat)
+                for pat in config.exclude_patterns
+            )
             if not included or excluded:
                 continue
 
@@ -51,7 +71,8 @@ def _collect_tools(config_path: Path) -> tuple[list[ToolDef], object]:
                 source = py_file.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(py_file))
             except SyntaxError as exc:
-                click.echo(f"Warning: skipping {py_file}: {exc}", err=True)  # issue #4
+                click.echo(f"Warning: skipping {py_file}: {exc}", err=True)
+                skipped.append((py_file, f"SyntaxError: {exc}"))  # 7b
                 continue
             except OSError:
                 continue
@@ -67,7 +88,26 @@ def _collect_tools(config_path: Path) -> tuple[list[ToolDef], object]:
                     file_tools = ap_scraper.scrape_file(py_file)
                     tools.extend(file_tools)
 
-    return tools, config
+    # 7a: warn on duplicate tool names
+    seen_names: dict[str, str] = {}
+    for tool in tools:
+        if tool.name in seen_names:
+            click.echo(
+                f"Warning: duplicate tool name '{tool.name}' found in "
+                f"'{tool.source_module}' and '{seen_names[tool.name]}'. "
+                "The second definition will overwrite the first in FastMCP registration.",
+                err=True,
+            )
+        else:
+            seen_names[tool.name] = tool.source_module
+
+    # 6b: apply tool-name include/exclude filters
+    if config.include_tools:
+        tools = [t for t in tools if t.name in config.include_tools]
+    if config.exclude_tools:
+        tools = [t for t in tools if t.name not in config.exclude_tools]
+
+    return tools, config, skipped
 
 
 @click.group()
@@ -106,10 +146,18 @@ def main() -> None:
 def generate(config_path: Path, output_path: Path | None, dry_run: bool, force: bool) -> None:
     """Generate an MCP tools module and (once) a server scaffold from CLI tools."""
     try:
-        tools, config = _collect_tools(config_path)
+        tools, config, skipped = _collect_tools(config_path)
     except (FileNotFoundError, ValueError) as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
+
+    # 6c: validate that the entry_point is on PATH
+    if not dry_run and shutil.which(config.entry_point) is None:
+        click.echo(
+            f"Warning: entry_point '{config.entry_point}' not found on PATH. "
+            "The generated server may fail at runtime.",
+            err=True,
+        )
 
     if not tools:
         click.echo("No CLI tools discovered. Check your source_dirs and patterns.", err=True)
@@ -161,27 +209,31 @@ def generate(config_path: Path, output_path: Path | None, dry_run: bool, force: 
 def list_tools(config_path: Path, output_format: str) -> None:
     """List discovered CLI tools without generating the server file."""
     try:
-        tools, _ = _collect_tools(config_path)
+        tools, _, skipped = _collect_tools(config_path)
     except (FileNotFoundError, ValueError) as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
 
-    if not tools:
+    if not tools and not skipped:
         click.echo("No CLI tools discovered.")
         return
 
     if output_format == "json":
-        data = []
+        data: dict = {"tools": [], "skipped": []}
         for tool in tools:
-            cmd = tool.cli_command
-            if tool.cli_subcommand:
-                cmd = f"{cmd} {tool.cli_subcommand}"
-            data.append({
+            # 1d: prefer subcommand_path for accurate command representation
+            if tool.subcommand_path:
+                cmd = f"{tool.cli_command} {' '.join(tool.subcommand_path)}"
+            elif tool.cli_subcommand:
+                cmd = f"{tool.cli_command} {tool.cli_subcommand}"
+            else:
+                cmd = tool.cli_command
+            data["tools"].append({
                 "name": tool.name,
                 "framework": tool.framework,
                 "command": cmd,
                 "description": tool.description,
-                "param_count": len(tool.parameters),
+                "param_count": len([p for p in tool.parameters if not p.hidden]),
                 "params": [
                     {
                         "name": p.name,
@@ -189,22 +241,39 @@ def list_tools(config_path: Path, output_format: str) -> None:
                         "required": p.required,
                         "default": p.default,
                         "choices": p.choices,
+                        "hidden": p.hidden,
+                        "mutex_group": p.mutually_exclusive_group,
                     }
                     for p in tool.parameters
                 ],
             })
+        # 7b: include skipped files in json output
+        for path, reason in skipped:
+            data["skipped"].append({"path": str(path), "reason": reason})
         click.echo(json.dumps(data, indent=2))
     else:
         click.echo(f"Discovered {len(tools)} tool(s):\n")
         for tool in tools:
-            cmd = tool.cli_command
-            if tool.cli_subcommand:
-                cmd = f"{cmd} {tool.cli_subcommand}"
+            if tool.subcommand_path:
+                cmd = f"{tool.cli_command} {' '.join(tool.subcommand_path)}"
+            elif tool.cli_subcommand:
+                cmd = f"{tool.cli_command} {tool.cli_subcommand}"
+            else:
+                cmd = tool.cli_command
+            visible_params = [p for p in tool.parameters if not p.hidden]
             click.echo(f"  {tool.name} ({tool.framework})")
             click.echo(f"    command : {cmd}")
             click.echo(f"    summary : {tool.description}")
-            click.echo(f"    params  : {len(tool.parameters)}")
+            click.echo(f"    params  : {len(visible_params)}")
             click.echo()
+
+        # 7b: report skipped files
+        if skipped:
+            click.echo(f"Skipped {len(skipped)} file(s) due to syntax errors:\n")
+            for path, reason in skipped:
+                click.echo(f"  {path}")
+                click.echo(f"    reason: {reason}")
+                click.echo()
 
 
 @main.command()
@@ -233,6 +302,10 @@ server_file = "mcp/mcp_server.py"
 include_patterns = ["*.py"]
 exclude_patterns = ["test_*", "_*"]
 # subprocess_timeout = 30
+# capture_stderr = false
+# prefer_direct_import = false
+# include_tools = []
+# exclude_tools = []
 """
 
 

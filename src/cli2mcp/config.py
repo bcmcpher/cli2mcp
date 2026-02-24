@@ -29,6 +29,10 @@ class Config:
     include_patterns: list[str] = field(default_factory=lambda: ["*.py"])
     exclude_patterns: list[str] = field(default_factory=lambda: ["test_*", "_*"])
     subprocess_timeout: int | None = None
+    include_tools: list[str] = field(default_factory=list)  # 6b: tool-name allowlist
+    exclude_tools: list[str] = field(default_factory=list)  # 6b: tool-name denylist
+    prefer_direct_import: bool = False  # 3a: generate direct-import calls by default
+    capture_stderr: bool = False  # 3b: include stderr in successful tool output
 
 
 def load_config(config_path: Path) -> Config:
@@ -70,6 +74,10 @@ def load_config(config_path: Path) -> Config:
     include_patterns = section.get("include_patterns", ["*.py"])
     exclude_patterns = section.get("exclude_patterns", ["test_*", "_*"])
     subprocess_timeout = section.get("subprocess_timeout", None)
+    include_tools = section.get("include_tools", [])  # 6b
+    exclude_tools = section.get("exclude_tools", [])  # 6b
+    prefer_direct_import = bool(section.get("prefer_direct_import", False))  # 3a
+    capture_stderr = bool(section.get("capture_stderr", False))  # 3b
 
     return Config(
         server_name=server_name,
@@ -80,4 +88,8 @@ def load_config(config_path: Path) -> Config:
         include_patterns=include_patterns,
         exclude_patterns=exclude_patterns,
         subprocess_timeout=subprocess_timeout,
+        include_tools=include_tools,
+        exclude_tools=exclude_tools,
+        prefer_direct_import=prefer_direct_import,
+        capture_stderr=capture_stderr,
     )

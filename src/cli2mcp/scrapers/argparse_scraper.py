@@ -10,6 +10,18 @@ from cli2mcp.parsers.docstring import parse_numpy_docstring
 from cli2mcp.parsers.type_mapper import ast_node_to_type_str
 from cli2mcp.scrapers.base import BaseScraper
 
+# 2c: extended action lookup including all stdlib actions
+_ACTION_MAP: dict[str, tuple[str, bool, bool]] = {
+    # action_string → (type_annotation, is_flag, is_multiple)
+    "store_true": ("bool", True, False),
+    "store_false": ("bool", True, False),
+    "store_const": ("str", False, False),
+    "append": ("str", False, True),
+    "append_const": ("str", False, True),
+    "count": ("int", False, False),  # each --verbose increments an int
+    "extend": ("str", False, True),
+}
+
 
 def _ast_to_python(node: ast.expr | None) -> Any:
     if node is None:
@@ -48,10 +60,8 @@ def _find_parser_var(func_body: list[ast.stmt]) -> tuple[str | None, str | None]
             continue
         if not _is_argumentparser_call(stmt.value):
             continue
-        # Get the variable name
         if stmt.targets and isinstance(stmt.targets[0], ast.Name):
             var_name = stmt.targets[0].id
-            # Try to extract prog=
             prog: str | None = None
             prog_node = None
             call = stmt.value
@@ -84,9 +94,63 @@ def _find_add_argument_calls(func_body: list[ast.stmt], parser_var: str) -> list
     return calls
 
 
-def _parse_add_argument(call: ast.Call) -> ParamDef | None:
+def _find_mutually_exclusive_groups(
+    func_body: list[ast.stmt], parser_var: str
+) -> dict[str, str]:
+    """2a: Find add_mutually_exclusive_group() calls and map var names to group IDs.
+
+    Returns {group_var_name: group_id_string}.
+    """
+    groups: dict[str, str] = {}
+    group_counter = 0
+    for stmt in func_body:
+        for node in ast.walk(stmt):
+            if not isinstance(node, ast.Assign):
+                continue
+            if not isinstance(node.value, ast.Call):
+                continue
+            call = node.value
+            if not (
+                isinstance(call.func, ast.Attribute)
+                and call.func.attr == "add_mutually_exclusive_group"
+                and isinstance(call.func.value, ast.Name)
+                and call.func.value.id == parser_var
+            ):
+                continue
+            if node.targets and isinstance(node.targets[0], ast.Name):
+                group_var = node.targets[0].id
+                group_counter += 1
+                groups[group_var] = f"mutex_group_{group_counter}"
+    return groups
+
+
+def _find_add_argument_calls_with_groups(
+    func_body: list[ast.stmt],
+    parser_var: str,
+    mutex_groups: dict[str, str],
+) -> list[tuple[ast.Call, str | None]]:
+    """Find add_argument calls, annotating each with its mutex group ID (or None)."""
+    results: list[tuple[ast.Call, str | None]] = []
+    all_vars = {parser_var: None} | mutex_groups  # var → group_id or None for main parser
+    for stmt in func_body:
+        for node in ast.walk(stmt):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (
+                isinstance(func, ast.Attribute)
+                and func.attr == "add_argument"
+                and isinstance(func.value, ast.Name)
+            ):
+                continue
+            obj_name = func.value.id
+            if obj_name in all_vars:
+                results.append((node, all_vars[obj_name]))
+    return results
+
+
+def _parse_add_argument(call: ast.Call, mutex_group: str | None = None) -> ParamDef | None:
     """Parse an add_argument(...) call into a ParamDef."""
-    # Positional string args are the flags/names
     cli_flags: list[str] = []
     for arg in call.args:
         if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
@@ -103,7 +167,7 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
             break
     if dest_node is not None:
         raw_dest = str(_ast_to_python(dest_node) or "")
-        param_name = raw_dest.replace("-", "_")  # sanitize dashes (issue #1)
+        param_name = raw_dest.replace("-", "_")
     else:
         long_flags = [f for f in cli_flags if f.startswith("--")]
         if long_flags:
@@ -115,7 +179,13 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
     type_annotation = "str"
     for kw in call.keywords:
         if kw.arg == "type":
-            type_annotation = ast_node_to_type_str(kw.value)
+            # 2d: handle argparse.FileType, lambda, and other callables
+            type_node = kw.value
+            if isinstance(type_node, ast.Lambda):
+                # 2d: lambda type callable → str (CLI always passes strings)
+                type_annotation = "str"
+            else:
+                type_annotation = ast_node_to_type_str(type_node)
             break
 
     # default=
@@ -134,22 +204,25 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
 
     is_positional = not cli_flags[0].startswith("-")
     if required is None:
-        required = is_positional  # positional args are required by default
+        required = is_positional
 
-    # action= store_true / store_false → bool flag
-    # nargs= / action=append → is_multiple
+    # action= handling
     is_flag = False
     is_multiple = False
     for kw in call.keywords:
         if kw.arg == "action":
             action_val = _ast_to_python(kw.value)
-            if action_val in ("store_true", "store_false"):
-                is_flag = True
-                type_annotation = "bool"
-                default = False if default is None else default
-                required = False
-            elif action_val == "append":
-                is_multiple = True
+            if isinstance(action_val, str) and action_val in _ACTION_MAP:
+                mapped_type, mapped_is_flag, mapped_is_multiple = _ACTION_MAP[action_val]
+                type_annotation = mapped_type
+                is_flag = mapped_is_flag
+                is_multiple = mapped_is_multiple
+                if is_flag:
+                    default = False if default is None else default
+                    required = False
+            elif action_val is not None:
+                # 2c: unknown custom action → fall back gracefully
+                pass  # keep existing type_annotation; generator will emit a TODO comment
             break
 
     # nargs='+' or nargs='*' or nargs=N>1 → is_multiple
@@ -194,6 +267,7 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
         is_flag=is_flag,
         is_multiple=is_multiple,
         choices=choices,
+        mutually_exclusive_group=mutex_group,  # 2a
     )
 
 
@@ -237,7 +311,6 @@ def _find_subparser_add_parser_calls(
                 and func.value.id == subparser_var
             ):
                 continue
-            # First positional arg is the subcommand name
             if node.args and isinstance(node.args[0], ast.Constant):
                 name = str(node.args[0].value)
                 results.append((name, node))
@@ -311,7 +384,8 @@ class ArgparseScraper(BaseScraper):
         tools: list[ToolDef] = []
 
         for node in ast.walk(tree):
-            if not isinstance(node, ast.FunctionDef):
+            # 1c: also handle async def functions
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
 
             parser_var, prog = _find_parser_var(node.body)
@@ -323,22 +397,41 @@ class ArgparseScraper(BaseScraper):
             raw_docstring = ast.get_docstring(node)
             parsed_doc = parse_numpy_docstring(raw_docstring)
 
-            # Check for subparsers (issue #6)
+            # 3a: capture return type annotation
+            return_type = "str"
+            if node.returns is not None:
+                ann = ast_node_to_type_str(node.returns)
+                if ann not in ("None", "str"):
+                    return_type = ann
+
+            # 2a: find mutually exclusive groups
+            mutex_groups = _find_mutually_exclusive_groups(node.body, parser_var)
+
+            # Check for subparsers
             subparser_var = _find_subparser_var(node.body, parser_var)
             if subparser_var is not None:
                 # Multi-subcommand pattern: one ToolDef per add_parser() call
                 sub_assignments = _find_subparser_assignments(node.body, subparser_var)
                 for sub_var, sub_name in sub_assignments.items():
-                    add_arg_calls = _find_add_argument_calls(node.body, sub_var)
+                    # 2a: include mutex groups for sub-parser args too
+                    sub_mutex = _find_mutually_exclusive_groups(node.body, sub_var)
+                    annotated = _find_add_argument_calls_with_groups(
+                        node.body, sub_var, sub_mutex
+                    )
                     params: list[ParamDef] = []
-                    for call in add_arg_calls:
-                        param = _parse_add_argument(call)
+                    for call, group_id in annotated:
+                        param = _parse_add_argument(call, group_id)
                         if param is not None:
                             params.append(param)
 
                     for param in params:
                         if param.name in parsed_doc.params and not param.description:
                             param.description = parsed_doc.params[param.name]
+                        if (
+                            param.type_annotation in ("str", "Any")
+                            and param.name in parsed_doc.param_types
+                        ):
+                            param.type_annotation = parsed_doc.param_types[param.name]
 
                     tool_name = sub_name.replace("-", "_")
                     tool = ToolDef(
@@ -351,24 +444,32 @@ class ArgparseScraper(BaseScraper):
                         cli_command=cli_command,
                         cli_subcommand=sub_name,
                         framework="argparse",
+                        return_type=return_type,
                     )
                     tools.append(tool)
                 continue
 
-            # Single-parser pattern
-            add_arg_calls = _find_add_argument_calls(node.body, parser_var)
-            if not add_arg_calls:
+            # Single-parser pattern — 2a: use annotated calls
+            annotated_calls = _find_add_argument_calls_with_groups(
+                node.body, parser_var, mutex_groups
+            )
+            if not annotated_calls:
                 continue
 
             params = []
-            for call in add_arg_calls:
-                param = _parse_add_argument(call)
+            for call, group_id in annotated_calls:
+                param = _parse_add_argument(call, group_id)
                 if param is not None:
                     params.append(param)
 
             for param in params:
                 if param.name in parsed_doc.params and not param.description:
                     param.description = parsed_doc.params[param.name]
+                if (
+                    param.type_annotation in ("str", "Any")
+                    and param.name in parsed_doc.param_types
+                ):
+                    param.type_annotation = parsed_doc.param_types[param.name]
 
             tool = ToolDef(
                 name=func_name,
@@ -380,6 +481,7 @@ class ArgparseScraper(BaseScraper):
                 cli_command=cli_command,
                 cli_subcommand=None,
                 framework="argparse",
+                return_type=return_type,
             )
             tools.append(tool)
 

@@ -151,9 +151,12 @@ def test_list_json_output(tmp_path):
     result = runner.invoke(main, ["list", "--config", str(config), "--format", "json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    names = [t["name"] for t in data]
+    # 7b: JSON output is now {"tools": [...], "skipped": [...]}
+    assert isinstance(data, dict)
+    assert "tools" in data
+    assert "skipped" in data
+    assert len(data["tools"]) >= 1
+    names = [t["name"] for t in data["tools"]]
     assert "greet" in names
 
 
@@ -162,7 +165,7 @@ def test_list_json_has_required_fields(tmp_path):
     runner = CliRunner()
     result = runner.invoke(main, ["list", "--config", str(config), "--format", "json"])
     data = json.loads(result.output)
-    for tool in data:
+    for tool in data["tools"]:
         assert "name" in tool
         assert "framework" in tool
         assert "command" in tool
