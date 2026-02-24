@@ -274,9 +274,7 @@ def _build_wrapper_map(
                         for a in child.args
                     ):
                         try:
-                            param = _parse_option_decorator(child)
-                            if not param.hidden:
-                                params.append(param)
+                            params.append(_parse_option_decorator(child))
                         except Exception:
                             pass
                 elif _is_click_argument(resolved):
@@ -425,8 +423,7 @@ class ClickScraper(BaseScraper):
                     has_context = True  # 1b
                 elif _is_click_option(resolved) and isinstance(dec, ast.Call):
                     param = _parse_option_decorator(dec)
-                    if not param.hidden:  # 1e: skip hidden options
-                        params.append(param)
+                    params.append(param)  # 1e: hidden params kept in list; generator omits them
                 elif _is_click_argument(resolved) and isinstance(dec, ast.Call):
                     params.append(_parse_argument_decorator(dec))
                 else:

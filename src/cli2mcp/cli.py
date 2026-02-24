@@ -151,8 +151,8 @@ def generate(config_path: Path, output_path: Path | None, dry_run: bool, force: 
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
 
-    # 6c: validate that the entry_point is on PATH
-    if not dry_run and shutil.which(config.entry_point) is None:
+    # 6c: validate that the entry_point is on PATH (warn regardless of --dry-run)
+    if shutil.which(config.entry_point) is None:
         click.echo(
             f"Warning: entry_point '{config.entry_point}' not found on PATH. "
             "The generated server may fail at runtime.",

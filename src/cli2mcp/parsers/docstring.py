@@ -250,13 +250,18 @@ def _parse_sphinx_style(docstring: str) -> ParsedDocstring:
     lines = [line.rstrip() for line in raw_lines]
     lines = _deindent(lines)
 
-    summary = lines[0].strip() if lines else ""
     params: dict[str, str] = {}
     param_types: dict[str, str] = {}
     returns = ""
     extended_lines: list[str] = []
 
-    for line in lines[1:]:
+    # If first non-empty line is a directive, there is no summary
+    first = lines[0].strip() if lines else ""
+    is_directive = bool(re.match(r"^:(param|type|returns?|rtype)\s", first))
+    summary = "" if is_directive else first
+    start = 0 if is_directive else 1
+
+    for line in lines[start:]:
         stripped = line.strip()
         m = _SPHINX_PARAM.match(stripped)
         if m:

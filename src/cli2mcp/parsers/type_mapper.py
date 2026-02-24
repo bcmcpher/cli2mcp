@@ -49,9 +49,11 @@ def map_type(raw_type: str | None) -> str:
 def ast_node_to_type_str(node: ast.expr | None) -> str:
     """Convert an AST expression node representing a type to a string annotation."""
     if node is None:
+        # No annotation present → str is the CLI default
         return "str"
     if isinstance(node, ast.Constant) and node.value is None:
-        return "str"
+        # The annotation is literally `None` (e.g., `-> None` or `str | None`)
+        return "None"
     if isinstance(node, ast.Name):
         return map_type(node.id)
     if isinstance(node, ast.Attribute):
