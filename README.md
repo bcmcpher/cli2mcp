@@ -171,19 +171,22 @@ str
 | `server_file` | no | `mcp_server.py` | Server entry point (written once, then yours to keep) |
 | `include_patterns` | no | `["*.py"]` | Glob patterns to include |
 | `exclude_patterns` | no | `["test_*", "_*"]` | Glob patterns to exclude |
+| `subprocess_timeout` | no | `None` (no limit) | Seconds before a subprocess call times out |
 
 ---
 
 ## CLI reference
 
 ```
-cli2mcp generate [--config FILE] [--output FILE] [--dry-run]
-cli2mcp list    [--config FILE]
+cli2mcp init     [--server-name NAME] [--entry-point CMD] [--source-dir DIR] [--config FILE]
+cli2mcp generate [--config FILE] [--output FILE] [--dry-run] [--force]
+cli2mcp list     [--config FILE] [--format {text,json}]
 cli2mcp validate FILE
 ```
 
-- **`generate`** — Scrape source dirs, always write the tools module, and write the server scaffold only if it doesn't already exist. Use `--dry-run` to print both files to stdout instead of writing. Use `--output` to override the tools module path from config.
-- **`list`** — Verify what tools were discovered without generating any files. Run this first to confirm `cli2mcp` found what you expect.
+- **`init`** — Scaffold a `[tool.cli2mcp]` section in `pyproject.toml` interactively. Prompts for server name, entry point, and source directory. Appends to an existing `pyproject.toml` or creates one from scratch.
+- **`generate`** — Scrape source dirs, always write the tools module, and write the server scaffold only if it doesn't already exist. Use `--dry-run` to print both files to stdout instead of writing. Use `--output` to override the tools module path from config. Use `--force` to overwrite the server scaffold even if it already exists.
+- **`list`** — Verify what tools were discovered without generating any files. Run this first to confirm `cli2mcp` found what you expect. Use `--format json` for machine-readable output.
 - **`validate FILE`** — Parse-check a generated file for syntax errors (runs `ast.parse` without importing).
 
 ---
