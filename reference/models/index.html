@@ -1214,7 +1214,9 @@
 <span class="normal"><a href="#__codelineno-0-15">15</a></span>
 <span class="normal"><a href="#__codelineno-0-16">16</a></span>
 <span class="normal"><a href="#__codelineno-0-17">17</a></span>
-<span class="normal"><a href="#__codelineno-0-18">18</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="nd">@dataclass</span>
+<span class="normal"><a href="#__codelineno-0-18">18</a></span>
+<span class="normal"><a href="#__codelineno-0-19">19</a></span>
+<span class="normal"><a href="#__codelineno-0-20">20</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="nd">@dataclass</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">ParamDef</span><span class="p">:</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11"></a>    <span class="n">cli_flags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
@@ -1225,6 +1227,8 @@
 <a id="__codelineno-0-16" name="__codelineno-0-16"></a>    <span class="n">is_flag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17"></a>    <span class="n">is_multiple</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18"></a>    <span class="n">choices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="n">hidden</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 1e: hidden/suppressed options</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">mutually_exclusive_group</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 2a: argparse mutually exclusive groups</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -1337,9 +1341,7 @@
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>src/cli2mcp/models.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-21">21</a></span>
-<span class="normal"><a href="#__codelineno-0-22">22</a></span>
-<span class="normal"><a href="#__codelineno-0-23">23</a></span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-23">23</a></span>
 <span class="normal"><a href="#__codelineno-0-24">24</a></span>
 <span class="normal"><a href="#__codelineno-0-25">25</a></span>
 <span class="normal"><a href="#__codelineno-0-26">26</a></span>
@@ -1347,17 +1349,29 @@
 <span class="normal"><a href="#__codelineno-0-28">28</a></span>
 <span class="normal"><a href="#__codelineno-0-29">29</a></span>
 <span class="normal"><a href="#__codelineno-0-30">30</a></span>
-<span class="normal"><a href="#__codelineno-0-31">31</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="nd">@dataclass</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="k">class</span><span class="w"> </span><span class="nc">ToolDef</span><span class="p">:</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParamDef</span><span class="p">]</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="n">return_description</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="n">source_module</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="n">source_function</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="n">cli_command</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="n">cli_subcommand</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="n">framework</span><span class="p">:</span> <span class="nb">str</span>
+<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="k">class</span><span class="w"> </span><span class="nc">ToolDef</span><span class="p">:</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParamDef</span><span class="p">]</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="n">return_description</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="n">source_module</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="n">source_function</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="n">cli_command</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="n">cli_subcommand</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="n">framework</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="n">has_context</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 1b: @click.pass_context — skip first ctx arg</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="n">subcommand_path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 1d: nested groups full CLI path</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="n">return_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;str&quot;</span>  <span class="c1"># 3a: source function return type annotation</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 3c: per-tool subprocess timeout override</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="n">stdin_param</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 3d: name of param to pipe as stdin</span>
 </code></pre></div></td></tr></table></div>
               </details>
 

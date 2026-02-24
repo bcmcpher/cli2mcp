@@ -1390,12 +1390,14 @@
 <span class="normal"><a href="#__codelineno-0-10">10</a></span>
 <span class="normal"><a href="#__codelineno-0-11">11</a></span>
 <span class="normal"><a href="#__codelineno-0-12">12</a></span>
-<span class="normal"><a href="#__codelineno-0-13">13</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="nd">@dataclass</span>
+<span class="normal"><a href="#__codelineno-0-13">13</a></span>
+<span class="normal"><a href="#__codelineno-0-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="nd">@dataclass</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">ParsedDocstring</span><span class="p">:</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10"></a>    <span class="n">summary</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11"></a>    <span class="n">extended</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12"></a>    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="n">returns</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="n">param_types</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>  <span class="c1"># 4b: captured type hints</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14"></a>    <span class="n">returns</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -1466,102 +1468,46 @@
 
     <div class="doc doc-contents first">
 
-        <p>Parse a NumPy-style docstring into a ParsedDocstring.</p>
+        <p>Parse a docstring (NumPy, Google, or Sphinx style) into a ParsedDocstring.</p>
+<p>Style is auto-detected:
+- NumPy: section names underlined with dashes (<code>---</code>)
+- Google: section names followed by a colon (<code>Args:</code>)
+- Sphinx: <code>:param name:</code> directives</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/cli2mcp/parsers/docstring.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
-<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
-<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
-<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
-<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
-<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
-<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
-<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
-<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
-<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
-<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
-<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
-<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
-<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
-<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span>
-<span class="normal"><a href="#__codelineno-0-103">103</a></span>
-<span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span>
-<span class="normal"><a href="#__codelineno-0-106">106</a></span>
-<span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span>
-<span class="normal"><a href="#__codelineno-0-111">111</a></span>
-<span class="normal"><a href="#__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#__codelineno-0-115">115</a></span>
-<span class="normal"><a href="#__codelineno-0-116">116</a></span>
-<span class="normal"><a href="#__codelineno-0-117">117</a></span>
-<span class="normal"><a href="#__codelineno-0-118">118</a></span>
-<span class="normal"><a href="#__codelineno-0-119">119</a></span>
-<span class="normal"><a href="#__codelineno-0-120">120</a></span>
-<span class="normal"><a href="#__codelineno-0-121">121</a></span>
-<span class="normal"><a href="#__codelineno-0-122">122</a></span>
-<span class="normal"><a href="#__codelineno-0-123">123</a></span>
-<span class="normal"><a href="#__codelineno-0-124">124</a></span>
-<span class="normal"><a href="#__codelineno-0-125">125</a></span>
-<span class="normal"><a href="#__codelineno-0-126">126</a></span>
-<span class="normal"><a href="#__codelineno-0-127">127</a></span>
-<span class="normal"><a href="#__codelineno-0-128">128</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_numpy_docstring</span><span class="p">(</span><span class="n">docstring</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParsedDocstring</span><span class="p">:</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse a NumPy-style docstring into a ParsedDocstring.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">docstring</span><span class="p">:</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="k">return</span> <span class="n">ParsedDocstring</span><span class="p">()</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="n">raw_lines</span> <span class="o">=</span> <span class="n">docstring</span><span class="o">.</span><span class="n">expandtabs</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="c1"># Determine base indentation from the first non-empty line after the summary</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">raw_lines</span><span class="p">]</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="c1"># De-indent: find minimum indent of non-empty lines beyond line 0</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>    <span class="n">non_empty</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="n">l</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="k">if</span> <span class="n">non_empty</span><span class="p">:</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="n">min_indent</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">l</span><span class="o">.</span><span class="n">lstrip</span><span class="p">())</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">non_empty</span><span class="p">)</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>        <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="n">l</span><span class="p">[</span><span class="n">min_indent</span><span class="p">:]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_indent</span> <span class="k">else</span> <span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="n">sections</span> <span class="o">=</span> <span class="n">_split_sections</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="n">preamble</span> <span class="o">=</span> <span class="n">sections</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;__preamble__&quot;</span><span class="p">,</span> <span class="p">[])</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="c1"># Summary: first non-empty line of preamble</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="n">summary</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="n">extended_lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="n">past_summary</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">preamble</span><span class="p">:</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">past_summary</span><span class="p">:</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>                <span class="n">summary</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>                <span class="n">past_summary</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>            <span class="n">extended_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="n">extended</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">extended_lines</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="c1"># Parameters section</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="n">params_lines</span> <span class="o">=</span> <span class="n">sections</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Parameters&quot;</span><span class="p">,</span> <span class="p">[])</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a>    <span class="n">params</span> <span class="o">=</span> <span class="n">_parse_params_section</span><span class="p">(</span><span class="n">params_lines</span><span class="p">)</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a>
-<a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="c1"># Returns section</span>
-<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="n">returns_lines</span> <span class="o">=</span> <span class="n">sections</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Returns&quot;</span><span class="p">,</span> <span class="p">[])</span>
-<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="n">returns</span> <span class="o">=</span> <span class="n">_parse_returns_section</span><span class="p">(</span><span class="n">returns_lines</span><span class="p">)</span>
-<a id="__codelineno-0-122" name="__codelineno-0-122"></a>
-<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="k">return</span> <span class="n">ParsedDocstring</span><span class="p">(</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a>        <span class="n">summary</span><span class="o">=</span><span class="n">summary</span><span class="p">,</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a>        <span class="n">extended</span><span class="o">=</span><span class="n">extended</span><span class="p">,</span>
-<a id="__codelineno-0-126" name="__codelineno-0-126"></a>        <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a>        <span class="n">returns</span><span class="o">=</span><span class="n">returns</span><span class="p">,</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_numpy_docstring</span><span class="p">(</span><span class="n">docstring</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParsedDocstring</span><span class="p">:</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse a docstring (NumPy, Google, or Sphinx style) into a ParsedDocstring.</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    Style is auto-detected:</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    - NumPy: section names underlined with dashes (``---``)</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    - Google: section names followed by a colon (``Args:``)</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    - Sphinx: ``:param name:`` directives</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">docstring</span><span class="p">:</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="k">return</span> <span class="n">ParsedDocstring</span><span class="p">()</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="n">style</span> <span class="o">=</span> <span class="n">_detect_style</span><span class="p">(</span><span class="n">docstring</span><span class="p">)</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;google&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="k">return</span> <span class="n">_parse_google_style</span><span class="p">(</span><span class="n">docstring</span><span class="p">)</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;sphinx&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>        <span class="k">return</span> <span class="n">_parse_sphinx_style</span><span class="p">(</span><span class="n">docstring</span><span class="p">)</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="k">return</span> <span class="n">_parse_numpy_style</span><span class="p">(</span><span class="n">docstring</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1612,41 +1558,69 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/cli2mcp/parsers/type_mapper.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
-<span class="normal"><a href="#__codelineno-0-31">31</a></span>
-<span class="normal"><a href="#__codelineno-0-32">32</a></span>
-<span class="normal"><a href="#__codelineno-0-33">33</a></span>
-<span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span>
-<span class="normal"><a href="#__codelineno-0-36">36</a></span>
-<span class="normal"><a href="#__codelineno-0-37">37</a></span>
-<span class="normal"><a href="#__codelineno-0-38">38</a></span>
-<span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span>
-<span class="normal"><a href="#__codelineno-0-42">42</a></span>
-<span class="normal"><a href="#__codelineno-0-43">43</a></span>
-<span class="normal"><a href="#__codelineno-0-44">44</a></span>
-<span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span>
-<span class="normal"><a href="#__codelineno-0-47">47</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="k">def</span><span class="w"> </span><span class="nf">ast_node_to_type_str</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">expr</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert an AST expression node representing a type to a string annotation.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a>        <span class="k">return</span> <span class="s2">&quot;str&quot;</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Constant</span><span class="p">)</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>        <span class="k">return</span> <span class="s2">&quot;str&quot;</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">):</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>        <span class="c1"># e.g. click.STRING, click.Path</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>        <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">attr</span><span class="p">)</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>        <span class="c1"># e.g. click.Path(exists=True) → treat as Path → str</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">):</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>            <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">attr</span><span class="p">)</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>            <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="k">return</span> <span class="s2">&quot;str&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="k">def</span><span class="w"> </span><span class="nf">ast_node_to_type_str</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">expr</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert an AST expression node representing a type to a string annotation.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a>        <span class="k">return</span> <span class="s2">&quot;str&quot;</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Constant</span><span class="p">)</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a>        <span class="k">return</span> <span class="s2">&quot;str&quot;</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a>        <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">):</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>        <span class="c1"># e.g. click.STRING, click.Path, argparse.FileType</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a>        <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">attr</span><span class="p">)</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="c1"># e.g. click.Path(exists=True) → treat as Path → str</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>        <span class="c1"># e.g. argparse.FileType(&quot;r&quot;) → str</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">):</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>            <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">attr</span><span class="p">)</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>            <span class="k">return</span> <span class="n">map_type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">):</span>  <span class="c1"># 5a: List[str], Optional[int], Dict[str, Any]</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>        <span class="n">outer</span> <span class="o">=</span> <span class="n">ast_node_to_type_str</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>        <span class="n">inner</span> <span class="o">=</span> <span class="n">ast_node_to_type_str</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">slice</span><span class="p">)</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outer</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">inner</span><span class="si">}</span><span class="s2">]&quot;</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Tuple</span><span class="p">):</span>  <span class="c1"># 5a: slice of Dict[str, Any] → &quot;str, Any&quot;</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">ast_node_to_type_str</span><span class="p">(</span><span class="n">elt</span><span class="p">)</span> <span class="k">for</span> <span class="n">elt</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">elts</span><span class="p">]</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="k">return</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BinOp</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BitOr</span><span class="p">):</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="c1"># PEP 604: X | Y union syntax (Python 3.10+)</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="n">left</span> <span class="o">=</span> <span class="n">ast_node_to_type_str</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>        <span class="n">right</span> <span class="o">=</span> <span class="n">ast_node_to_type_str</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">left</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">right</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="c1"># 5b: Completely unrecognisable AST node → Any (more honest than silent str)</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="k">return</span> <span class="s2">&quot;Any&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1711,15 +1685,19 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/cli2mcp/parsers/type_mapper.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-23">23</a></span>
-<span class="normal"><a href="#__codelineno-0-24">24</a></span>
-<span class="normal"><a href="#__codelineno-0-25">25</a></span>
-<span class="normal"><a href="#__codelineno-0-26">26</a></span>
-<span class="normal"><a href="#__codelineno-0-27">27</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="k">def</span><span class="w"> </span><span class="nf">map_type</span><span class="p">(</span><span class="n">raw_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Map a raw type string (from AST or click/argparse metadata) to a Python annotation string.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="k">if</span> <span class="n">raw_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a>        <span class="k">return</span> <span class="s2">&quot;str&quot;</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="k">return</span> <span class="n">_CLICK_TYPE_MAP</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">raw_type</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="k">def</span><span class="w"> </span><span class="nf">map_type</span><span class="p">(</span><span class="n">raw_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Map a raw type string (from AST or click/argparse metadata) to a Python annotation string.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="k">if</span> <span class="n">raw_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="k">return</span> <span class="s2">&quot;str&quot;</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="c1"># Return mapped value if known; otherwise return the raw name as-is</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="c1"># (it may be a user-defined type, which is fine as a string annotation)</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="k">return</span> <span class="n">_CLICK_TYPE_MAP</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">raw_type</span><span class="p">,</span> <span class="n">raw_type</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
