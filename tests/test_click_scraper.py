@@ -145,3 +145,25 @@ def test_nargs_variadic_argument():
     params = {p.name: p for p in merge.parameters}
     assert params["files"].is_multiple is True
     assert params["files"].type_annotation.startswith("list[")
+
+
+# ---------------------------------------------------------------------------
+# rich_click detection (drop-in click-compatible wrapper)
+# ---------------------------------------------------------------------------
+
+def test_detect_rich_click_import():
+    """import rich_click as click should be detected as click-compatible."""
+    import ast
+    source = "import rich_click as click\n\n@click.command()\ndef cmd(): pass\n"
+    tree = ast.parse(source)
+    scraper = ClickScraper()
+    assert scraper.detect(tree) is True
+
+
+def test_detect_rich_click_from_import():
+    """from rich_click import command should be detected as click-compatible."""
+    import ast
+    source = "from rich_click import command\n\n@command()\ndef cmd(): pass\n"
+    tree = ast.parse(source)
+    scraper = ClickScraper()
+    assert scraper.detect(tree) is True

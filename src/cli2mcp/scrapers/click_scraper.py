@@ -10,6 +10,9 @@ from cli2mcp.parsers.docstring import parse_numpy_docstring
 from cli2mcp.parsers.type_mapper import ast_node_to_type_str
 from cli2mcp.scrapers.base import BaseScraper
 
+# Modules that are API-compatible with click (drop-in replacements)
+_CLICK_MODULES = frozenset({"click", "rich_click"})
+
 
 def _build_alias_map(tree: ast.AST) -> dict[str, str]:
     """Build a map from local names to their fully-qualified click names.
@@ -20,11 +23,11 @@ def _build_alias_map(tree: ast.AST) -> dict[str, str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name == "click":
+                if alias.name in _CLICK_MODULES:
                     local = alias.asname or alias.name
                     aliases[local] = "click"
         elif isinstance(node, ast.ImportFrom):
-            if node.module == "click":
+            if node.module in _CLICK_MODULES:
                 for alias in node.names:
                     local = alias.asname or alias.name
                     aliases[local] = f"click.{alias.name}"
@@ -234,14 +237,14 @@ class ClickScraper(BaseScraper):
         self.cli_command = cli_command
 
     def detect(self, tree: ast.AST) -> bool:
-        """Return True if this file imports click."""
+        """Return True if this file imports click or a click-compatible module."""
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name == "click":
+                    if alias.name in _CLICK_MODULES:
                         return True
             elif isinstance(node, ast.ImportFrom):
-                if node.module == "click":
+                if node.module in _CLICK_MODULES:
                     return True
         return False
 
