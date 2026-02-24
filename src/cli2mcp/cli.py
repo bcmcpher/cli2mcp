@@ -126,8 +126,10 @@ def generate(config_path: Path, output_path: Path | None, dry_run: bool, force: 
         click.echo(f"# ===== Server scaffold: {config.server_file.name} (only written if not present) =====")
         click.echo(scaffold_content)
     else:
+        dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(module_content, encoding="utf-8")
         click.echo(f"Generated {dest} with {len(tools)} tool(s).")
+        config.server_file.parent.mkdir(parents=True, exist_ok=True)
         if force and config.server_file.exists():
             click.echo(f"Warning: overwriting existing {config.server_file} (--force).", err=True)
             config.server_file.write_text(scaffold_content, encoding="utf-8")
@@ -226,8 +228,8 @@ _INIT_TEMPLATE = """\
 server_name = "{server_name}"
 entry_point = "{entry_point}"
 source_dirs = ["{source_dir}"]
-output_file = "mcp_tools_generated.py"
-server_file = "mcp_server.py"
+output_file = "mcp/mcp_tools_generated.py"
+server_file = "mcp/mcp_server.py"
 include_patterns = ["*.py"]
 exclude_patterns = ["test_*", "_*"]
 # subprocess_timeout = 30

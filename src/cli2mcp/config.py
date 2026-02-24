@@ -24,8 +24,8 @@ class Config:
     server_name: str
     entry_point: str
     source_dirs: list[Path]
-    output_file: Path = field(default_factory=lambda: Path("mcp_tools_generated.py"))
-    server_file: Path = field(default_factory=lambda: Path("mcp_server.py"))
+    output_file: Path = field(default_factory=lambda: Path("mcp/mcp_tools_generated.py"))
+    server_file: Path = field(default_factory=lambda: Path("mcp/mcp_server.py"))
     include_patterns: list[str] = field(default_factory=lambda: ["*.py"])
     exclude_patterns: list[str] = field(default_factory=lambda: ["test_*", "_*"])
     subprocess_timeout: int | None = None
@@ -61,10 +61,10 @@ def load_config(config_path: Path) -> Config:
     config_dir = config_path.parent
     source_dirs = [config_dir / d for d in raw_source_dirs]
 
-    output_file_raw = section.get("output_file", "mcp_tools_generated.py")
+    output_file_raw = section.get("output_file", "mcp/mcp_tools_generated.py")
     output_file = config_dir / output_file_raw
 
-    server_file_raw = section.get("server_file", "mcp_server.py")
+    server_file_raw = section.get("server_file", "mcp/mcp_server.py")
     server_file = config_dir / server_file_raw
 
     include_patterns = section.get("include_patterns", ["*.py"])

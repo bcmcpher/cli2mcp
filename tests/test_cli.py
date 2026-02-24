@@ -24,8 +24,8 @@ def _make_config(tmp_path: Path, source_dir: Path | None = None) -> Path:
 server_name = "Test Server"
 entry_point = "mycli"
 source_dirs = ["{source_dir}"]
-output_file = "mcp_tools_generated.py"
-server_file = "mcp_server.py"
+output_file = "mcp/mcp_tools_generated.py"
+server_file = "mcp/mcp_server.py"
 include_patterns = ["sample_click_cli.py"]
 exclude_patterns = []
 """,
@@ -54,8 +54,8 @@ def test_generate_dry_run_no_files_written(tmp_path):
     config = _make_config(tmp_path)
     runner = CliRunner()
     runner.invoke(main, ["generate", "--config", str(config), "--dry-run"])
-    assert not (tmp_path / "mcp_tools_generated.py").exists()
-    assert not (tmp_path / "mcp_server.py").exists()
+    assert not (tmp_path / "mcp" / "mcp_tools_generated.py").exists()
+    assert not (tmp_path / "mcp" / "mcp_server.py").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -68,10 +68,10 @@ def test_generate_writes_module_file(tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         main,
-        ["generate", "--config", str(config), "--output", str(tmp_path / "mcp_tools_generated.py")],
+        ["generate", "--config", str(config), "--output", str(tmp_path / "mcp" / "mcp_tools_generated.py")],
     )
     assert result.exit_code == 0, result.output
-    module_file = tmp_path / "mcp_tools_generated.py"
+    module_file = tmp_path / "mcp" / "mcp_tools_generated.py"
     assert module_file.exists()
     # Must be valid Python
     ast.parse(module_file.read_text())
@@ -82,9 +82,9 @@ def test_generate_writes_scaffold_first_run(tmp_path):
     runner = CliRunner()
     runner.invoke(
         main,
-        ["generate", "--config", str(config), "--output", str(tmp_path / "mcp_tools_generated.py")],
+        ["generate", "--config", str(config), "--output", str(tmp_path / "mcp" / "mcp_tools_generated.py")],
     )
-    scaffold = tmp_path / "mcp_server.py"
+    scaffold = tmp_path / "mcp" / "mcp_server.py"
     assert scaffold.exists()
     assert "FastMCP" in scaffold.read_text()
 
@@ -92,10 +92,10 @@ def test_generate_writes_scaffold_first_run(tmp_path):
 def test_generate_skips_scaffold_on_second_run(tmp_path):
     config = _make_config(tmp_path)
     runner = CliRunner()
-    args = ["generate", "--config", str(config), "--output", str(tmp_path / "mcp_tools_generated.py")]
+    args = ["generate", "--config", str(config), "--output", str(tmp_path / "mcp" / "mcp_tools_generated.py")]
 
     runner.invoke(main, args)
-    scaffold = tmp_path / "mcp_server.py"
+    scaffold = tmp_path / "mcp" / "mcp_server.py"
     scaffold.write_text("# custom content", encoding="utf-8")
 
     runner.invoke(main, args)
@@ -105,10 +105,10 @@ def test_generate_skips_scaffold_on_second_run(tmp_path):
 def test_generate_force_overwrites_scaffold(tmp_path):
     config = _make_config(tmp_path)
     runner = CliRunner()
-    args = ["generate", "--config", str(config), "--output", str(tmp_path / "mcp_tools_generated.py")]
+    args = ["generate", "--config", str(config), "--output", str(tmp_path / "mcp" / "mcp_tools_generated.py")]
 
     runner.invoke(main, args)
-    scaffold = tmp_path / "mcp_server.py"
+    scaffold = tmp_path / "mcp" / "mcp_server.py"
     scaffold.write_text("# custom content", encoding="utf-8")
 
     runner.invoke(main, args + ["--force"])
@@ -202,7 +202,7 @@ def test_validate_bad_file(tmp_path):
 def test_validate_generated_module_is_valid(tmp_path):
     """End-to-end: generate then validate."""
     config = _make_config(tmp_path)
-    output = tmp_path / "mcp_tools_generated.py"
+    output = tmp_path / "mcp" / "mcp_tools_generated.py"
     runner = CliRunner()
     runner.invoke(main, ["generate", "--config", str(config), "--output", str(output)])
     result = runner.invoke(main, ["validate", str(output)])
