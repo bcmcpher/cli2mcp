@@ -28,6 +28,7 @@ class Config:
     server_file: Path = field(default_factory=lambda: Path("mcp_server.py"))
     include_patterns: list[str] = field(default_factory=lambda: ["*.py"])
     exclude_patterns: list[str] = field(default_factory=lambda: ["test_*", "_*"])
+    subprocess_timeout: int | None = None
 
 
 def load_config(config_path: Path) -> Config:
@@ -68,6 +69,7 @@ def load_config(config_path: Path) -> Config:
 
     include_patterns = section.get("include_patterns", ["*.py"])
     exclude_patterns = section.get("exclude_patterns", ["test_*", "_*"])
+    subprocess_timeout = section.get("subprocess_timeout", None)
 
     return Config(
         server_name=server_name,
@@ -77,4 +79,5 @@ def load_config(config_path: Path) -> Config:
         server_file=server_file,
         include_patterns=include_patterns,
         exclude_patterns=exclude_patterns,
+        subprocess_timeout=subprocess_timeout,
     )

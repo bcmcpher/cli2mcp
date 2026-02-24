@@ -88,3 +88,77 @@ def test_no_argparse_file():
     import ast
     tree = ast.parse("x = 1")
     assert scraper.detect(tree) is False
+
+
+# ---------------------------------------------------------------------------
+# Subparsers (issue #6)
+# ---------------------------------------------------------------------------
+
+SUBPARSER_FIXTURE = Path(__file__).parent / "fixtures" / "sample_argparse_subparsers.py"
+
+
+def test_subparsers_produces_two_tools():
+    scraper = ArgparseScraper(cli_command="myapp")
+    tools = scraper.scrape_file(SUBPARSER_FIXTURE)
+    names = [t.name for t in tools]
+    assert "start" in names
+    assert "run_job" in names  # dash sanitized to underscore
+
+
+def test_subparser_dash_name_sanitized():
+    scraper = ArgparseScraper(cli_command="myapp")
+    tools = scraper.scrape_file(SUBPARSER_FIXTURE)
+    # tool.name must be valid Python (no dashes)
+    for t in tools:
+        assert "-" not in t.name
+
+
+def test_subparser_cli_subcommand_preserved():
+    scraper = ArgparseScraper(cli_command="myapp")
+    tools = scraper.scrape_file(SUBPARSER_FIXTURE)
+    run_job = next(t for t in tools if t.name == "run_job")
+    assert run_job.cli_subcommand == "run-job"  # original name kept for CLI invocation
+
+
+def test_subparser_start_params():
+    scraper = ArgparseScraper(cli_command="myapp")
+    tools = scraper.scrape_file(SUBPARSER_FIXTURE)
+    start = next(t for t in tools if t.name == "start")
+    param_names = [p.name for p in start.parameters]
+    assert "port" in param_names
+    assert "host" in param_names
+
+
+def test_subparser_run_job_params():
+    scraper = ArgparseScraper(cli_command="myapp")
+    tools = scraper.scrape_file(SUBPARSER_FIXTURE)
+    run_job = next(t for t in tools if t.name == "run_job")
+    param_names = [p.name for p in run_job.parameters]
+    assert "name" in param_names
+    assert "workers" in param_names
+
+
+# ---------------------------------------------------------------------------
+# dest= dash sanitization (issue #1)
+# ---------------------------------------------------------------------------
+
+def test_dest_dash_sanitized():
+    import ast
+    source = """\
+import argparse
+
+def my_func():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--my-opt", dest="my-dest", help="test")
+    parser.parse_args()
+"""
+    scraper = ArgparseScraper()
+    tmp = __import__("tempfile").NamedTemporaryFile(suffix=".py", delete=False, mode="w")
+    tmp.write(source)
+    tmp.close()
+    tools = scraper.scrape_file(Path(tmp.name))
+    import os; os.unlink(tmp.name)
+    if tools:
+        for t in tools:
+            for p in t.parameters:
+                assert "-" not in p.name

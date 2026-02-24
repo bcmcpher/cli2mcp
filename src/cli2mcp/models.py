@@ -14,6 +14,8 @@ class ParamDef:
     required: bool
     description: str
     is_flag: bool = False
+    is_multiple: bool = False
+    choices: list[str] | None = None
 
 
 @dataclass

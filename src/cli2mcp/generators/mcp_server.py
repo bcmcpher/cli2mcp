@@ -87,53 +87,17 @@ def _format_param_docs(params: list[ParamDef]) -> str:
     for p in params:
         lines.append(f"    {p.name} : {p.type_annotation}")
         desc = p.description or f"The {p.name} parameter."
+        if p.choices:
+            desc = f"{desc} Choices: {', '.join(p.choices)}."
         lines.append(f"        {desc}")
     return "\n".join(lines) + "\n"
-
-
-def _build_cli_args(tool: ToolDef) -> str:
-    """Build the list of CLI arguments for subprocess.run as a Python expression string."""
-    # Start with command and optional subcommand
-    cmd_parts: list[str] = []
-    if tool.cli_command:
-        cmd_parts.append(repr(tool.cli_command))
-    if tool.cli_subcommand and tool.cli_subcommand != tool.cli_command:
-        cmd_parts.append(repr(tool.cli_subcommand))
-
-    arg_build_lines: list[str] = []
-
-    # Separate positional from option params
-    positional_params = [p for p in tool.parameters if not any(f.startswith("-") for f in p.cli_flags)]
-    option_params = [p for p in tool.parameters if any(f.startswith("-") for f in p.cli_flags)]
-
-    for p in positional_params:
-        arg_build_lines.append(f"        str({p.name}),")
-
-    for p in option_params:
-        long_flags = [f for f in p.cli_flags if f.startswith("--")]
-        flag = long_flags[0] if long_flags else p.cli_flags[0]
-        if p.is_flag:
-            arg_build_lines.append(f"        *([{repr(flag)}] if {p.name} else []),")
-        else:
-            arg_build_lines.append(f"        {repr(flag)}, str({p.name}),")
-
-    if not cmd_parts and not arg_build_lines:
-        return "        []"
-
-    lines = ["        ["]
-    for part in cmd_parts:
-        lines.append(f"            {part},")
-    if arg_build_lines:
-        lines.extend(f"        {line}" for line in arg_build_lines)
-    lines.append("        ]")
-    return "\n".join(lines)
 
 
 def _build_direct_import_kwargs(params: list[ParamDef]) -> str:
     return ", ".join(f"{p.name}={p.name}" for p in params)
 
 
-def _render_tool(tool: ToolDef) -> str:
+def _render_tool(tool: ToolDef, subprocess_timeout: int | None = None) -> str:
     """Render a single @mcp.tool() function (top-level, unindented)."""
     params_sig = _format_param_sig(tool.parameters)
     param_docs_section = _format_param_docs(tool.parameters)
@@ -141,7 +105,6 @@ def _render_tool(tool: ToolDef) -> str:
     if param_docs_section:
         param_docs_section = "\n" + param_docs_section
 
-    cli_args = _build_cli_args(tool)
     kwargs_str = _build_direct_import_kwargs(tool.parameters)
 
     body_lines = [
@@ -159,21 +122,32 @@ def _render_tool(tool: ToolDef) -> str:
     option_params = [p for p in tool.parameters if any(f.startswith("-") for f in p.cli_flags)]
 
     for p in positional_params:
-        body_lines.append(f"            str({p.name}),")
+        if p.is_multiple:
+            body_lines.append(f"            *(str(v) for v in {p.name}),")
+        else:
+            body_lines.append(f"            str({p.name}),")
 
     for p in option_params:
         long_flags = [f for f in p.cli_flags if f.startswith("--")]
         flag = long_flags[0] if long_flags else p.cli_flags[0]
         if p.is_flag:
             body_lines.append(f"            *([{repr(flag)}] if {p.name} else []),")
+        elif p.is_multiple:
+            body_lines.append(f"            *(f for v in {p.name} for f in [{repr(flag)}, str(v)]),")
         else:
             body_lines.append(f"            {repr(flag)}, str({p.name}),")
+
+    timeout_line = f"        timeout={subprocess_timeout}," if subprocess_timeout is not None else ""
 
     body_lines += [
         "        ],",
         "        capture_output=True,",
         "        text=True,",
         "        check=False,",
+    ]
+    if timeout_line:
+        body_lines.append(timeout_line)
+    body_lines += [
         "    )",
         "    if result.returncode != 0:",
         r'        raise RuntimeError(f"CLI command failed:\n{result.stderr}")',
@@ -219,7 +193,7 @@ def generate_module(tools: list[ToolDef], config: "Config") -> str:
 
     tool_blocks = []
     for tool in tools:
-        rendered = _render_tool(tool).strip()
+        rendered = _render_tool(tool, config.subprocess_timeout).strip()
         indented = textwrap.indent(rendered, "    ")
         tool_blocks.append("\n\n" + indented)
 

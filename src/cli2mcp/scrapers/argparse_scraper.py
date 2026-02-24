@@ -102,7 +102,8 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
             dest_node = kw.value
             break
     if dest_node is not None:
-        param_name = str(_ast_to_python(dest_node) or "")
+        raw_dest = str(_ast_to_python(dest_node) or "")
+        param_name = raw_dest.replace("-", "_")  # sanitize dashes (issue #1)
     else:
         long_flags = [f for f in cli_flags if f.startswith("--")]
         if long_flags:
@@ -136,7 +137,9 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
         required = is_positional  # positional args are required by default
 
     # action= store_true / store_false → bool flag
+    # nargs= / action=append → is_multiple
     is_flag = False
+    is_multiple = False
     for kw in call.keywords:
         if kw.arg == "action":
             action_val = _ast_to_python(kw.value)
@@ -145,7 +148,34 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
                 type_annotation = "bool"
                 default = False if default is None else default
                 required = False
+            elif action_val == "append":
+                is_multiple = True
             break
+
+    # nargs='+' or nargs='*' or nargs=N>1 → is_multiple
+    for kw in call.keywords:
+        if kw.arg == "nargs":
+            nargs_val = _ast_to_python(kw.value)
+            if nargs_val in ("+", "*") or (isinstance(nargs_val, int) and nargs_val > 1):
+                is_multiple = True
+            break
+
+    # choices=
+    choices: list[str] | None = None
+    for kw in call.keywords:
+        if kw.arg == "choices":
+            if isinstance(kw.value, (ast.List, ast.Tuple)):
+                extracted = [
+                    _ast_to_python(elt)
+                    for elt in kw.value.elts
+                    if isinstance(elt, ast.Constant)
+                ]
+                if extracted:
+                    choices = [str(c) for c in extracted]
+            break
+
+    if is_multiple:
+        type_annotation = f"list[{type_annotation}]"
 
     # help=
     description = ""
@@ -162,7 +192,89 @@ def _parse_add_argument(call: ast.Call) -> ParamDef | None:
         required=bool(required),
         description=description,
         is_flag=is_flag,
+        is_multiple=is_multiple,
+        choices=choices,
     )
+
+
+def _find_subparser_var(func_body: list[ast.stmt], parser_var: str) -> str | None:
+    """Find the variable assigned from <parser_var>.add_subparsers()."""
+    for stmt in func_body:
+        if not isinstance(stmt, ast.Assign):
+            continue
+        if not isinstance(stmt.value, ast.Call):
+            continue
+        call = stmt.value
+        if not (
+            isinstance(call.func, ast.Attribute)
+            and call.func.attr == "add_subparsers"
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == parser_var
+        ):
+            continue
+        if stmt.targets and isinstance(stmt.targets[0], ast.Name):
+            return stmt.targets[0].id
+    return None
+
+
+def _find_subparser_add_parser_calls(
+    func_body: list[ast.stmt], subparser_var: str
+) -> list[tuple[str, ast.Call]]:
+    """Find <subparser_var>.add_parser(name, ...) calls.
+
+    Returns list of (subcommand_name, add_parser_call).
+    """
+    results: list[tuple[str, ast.Call]] = []
+    for stmt in func_body:
+        for node in ast.walk(stmt):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (
+                isinstance(func, ast.Attribute)
+                and func.attr == "add_parser"
+                and isinstance(func.value, ast.Name)
+                and func.value.id == subparser_var
+            ):
+                continue
+            # First positional arg is the subcommand name
+            if node.args and isinstance(node.args[0], ast.Constant):
+                name = str(node.args[0].value)
+                results.append((name, node))
+    return results
+
+
+def _find_subparser_assignments(
+    func_body: list[ast.stmt], subparser_var: str
+) -> dict[str, str]:
+    """Find variable names assigned from add_parser() calls.
+
+    Returns {var_name: subcommand_name}.
+    """
+    assignments: dict[str, str] = {}
+    for stmt in func_body:
+        if not isinstance(stmt, ast.Assign):
+            continue
+        if not isinstance(stmt.value, ast.Call):
+            continue
+        call = stmt.value
+        if not (
+            isinstance(call.func, ast.Attribute)
+            and call.func.attr == "add_parser"
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == subparser_var
+        ):
+            continue
+        if (
+            stmt.targets
+            and isinstance(stmt.targets[0], ast.Name)
+            and call.args
+            and isinstance(call.args[0], ast.Constant)
+        ):
+            var_name = stmt.targets[0].id
+            subcommand_name = str(call.args[0].value)
+            assignments[var_name] = subcommand_name
+    return assignments
 
 
 class ArgparseScraper(BaseScraper):
@@ -206,26 +318,57 @@ class ArgparseScraper(BaseScraper):
             if parser_var is None:
                 continue
 
+            func_name = node.name
+            cli_command = prog or self.cli_command or func_name
+            raw_docstring = ast.get_docstring(node)
+            parsed_doc = parse_numpy_docstring(raw_docstring)
+
+            # Check for subparsers (issue #6)
+            subparser_var = _find_subparser_var(node.body, parser_var)
+            if subparser_var is not None:
+                # Multi-subcommand pattern: one ToolDef per add_parser() call
+                sub_assignments = _find_subparser_assignments(node.body, subparser_var)
+                for sub_var, sub_name in sub_assignments.items():
+                    add_arg_calls = _find_add_argument_calls(node.body, sub_var)
+                    params: list[ParamDef] = []
+                    for call in add_arg_calls:
+                        param = _parse_add_argument(call)
+                        if param is not None:
+                            params.append(param)
+
+                    for param in params:
+                        if param.name in parsed_doc.params and not param.description:
+                            param.description = parsed_doc.params[param.name]
+
+                    tool_name = sub_name.replace("-", "_")
+                    tool = ToolDef(
+                        name=tool_name,
+                        description=parsed_doc.summary or f"Run {sub_name}",
+                        parameters=params,
+                        return_description=parsed_doc.returns or "Command output",
+                        source_module=source_module,
+                        source_function=func_name,
+                        cli_command=cli_command,
+                        cli_subcommand=sub_name,
+                        framework="argparse",
+                    )
+                    tools.append(tool)
+                continue
+
+            # Single-parser pattern
             add_arg_calls = _find_add_argument_calls(node.body, parser_var)
             if not add_arg_calls:
                 continue
 
-            params: list[ParamDef] = []
+            params = []
             for call in add_arg_calls:
                 param = _parse_add_argument(call)
                 if param is not None:
                     params.append(param)
 
-            raw_docstring = ast.get_docstring(node)
-            parsed_doc = parse_numpy_docstring(raw_docstring)
-
-            # Merge docstring descriptions
             for param in params:
                 if param.name in parsed_doc.params and not param.description:
                     param.description = parsed_doc.params[param.name]
-
-            func_name = node.name
-            cli_command = prog or self.cli_command or func_name
 
             tool = ToolDef(
                 name=func_name,

@@ -10,7 +10,9 @@ _CLICK_TYPE_MAP: dict[str, str] = {
     "BOOL": "bool",
     "Path": "str",
     "File": "str",
-    "UUID": "str",
+    "UUID": "str",  # str (UUID format)
+    "DateTime": "str",  # str (datetime ISO 8601)
+    "Tuple": "str",
     "str": "str",
     "int": "int",
     "float": "float",

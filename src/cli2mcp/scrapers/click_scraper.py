@@ -80,7 +80,35 @@ def _ast_to_python(node: ast.expr | None) -> Any:
             return False
         if node.id == "None":
             return None
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        val = _ast_to_python(node.operand)
+        if isinstance(val, (int, float)):
+            return -val
     return None
+
+
+def _extract_choices(type_node: ast.expr | None) -> list[str] | None:
+    """Extract choices list from click.Choice([...]) type node, or None."""
+    if type_node is None:
+        return None
+    if not isinstance(type_node, ast.Call):
+        return None
+    func = type_node.func
+    # click.Choice or Choice
+    is_choice = (
+        (isinstance(func, ast.Attribute) and func.attr == "Choice")
+        or (isinstance(func, ast.Name) and func.id == "Choice")
+    )
+    if not is_choice:
+        return None
+    # First positional arg should be a list/tuple of string constants
+    if not type_node.args:
+        return None
+    arg = type_node.args[0]
+    if not isinstance(arg, (ast.List, ast.Tuple)):
+        return None
+    extracted = [_ast_to_python(elt) for elt in arg.elts if isinstance(elt, ast.Constant)]
+    return [str(c) for c in extracted] if extracted else None
 
 
 def _parse_option_decorator(call: ast.Call) -> ParamDef:
@@ -101,6 +129,9 @@ def _parse_option_decorator(call: ast.Call) -> ParamDef:
         param_name = "unknown"
 
     type_node = _get_keyword_value(call, "type")
+
+    # Check for click.Choice (issue #7)
+    choices = _extract_choices(type_node)
     type_annotation = ast_node_to_type_str(type_node)
 
     default_node = _get_keyword_value(call, "default")
@@ -129,6 +160,19 @@ def _parse_option_decorator(call: ast.Call) -> ParamDef:
         required = False
         cli_flags = [cli_flags[0].split("/")[0]]
 
+    # multiple=True (issue #7)
+    multiple_node = _get_keyword_value(call, "multiple")
+    is_multiple = bool(_ast_to_python(multiple_node))
+
+    # nargs=-1 or nargs>1 → is_multiple (issue #7)
+    nargs_node = _get_keyword_value(call, "nargs")
+    nargs_val = _ast_to_python(nargs_node)
+    if nargs_val is not None and nargs_val != 1:
+        is_multiple = True
+
+    if is_multiple:
+        type_annotation = f"list[{type_annotation}]"
+
     return ParamDef(
         name=param_name,
         cli_flags=cli_flags,
@@ -137,6 +181,8 @@ def _parse_option_decorator(call: ast.Call) -> ParamDef:
         required=required,
         description=str(description),
         is_flag=is_flag,
+        is_multiple=is_multiple,
+        choices=choices,
     )
 
 
@@ -150,6 +196,7 @@ def _parse_argument_decorator(call: ast.Call) -> ParamDef:
     param_name = cli_flags[0].lower().replace("-", "_") if cli_flags else "arg"
 
     type_node = _get_keyword_value(call, "type")
+    choices = _extract_choices(type_node)
     type_annotation = ast_node_to_type_str(type_node)
 
     required_node = _get_keyword_value(call, "required")
@@ -159,6 +206,13 @@ def _parse_argument_decorator(call: ast.Call) -> ParamDef:
     default_node = _get_keyword_value(call, "default")
     default = _ast_to_python(default_node)
 
+    # nargs=-1 or nargs>1 → is_multiple (issue #7)
+    nargs_node = _get_keyword_value(call, "nargs")
+    nargs_val = _ast_to_python(nargs_node)
+    is_multiple = nargs_val is not None and nargs_val != 1
+    if is_multiple:
+        type_annotation = f"list[{type_annotation}]"
+
     return ParamDef(
         name=param_name,
         cli_flags=cli_flags,
@@ -167,6 +221,8 @@ def _parse_argument_decorator(call: ast.Call) -> ParamDef:
         required=bool(required),
         description="",
         is_flag=False,
+        is_multiple=is_multiple,
+        choices=choices,
     )
 
 
@@ -240,21 +296,24 @@ class ClickScraper(BaseScraper):
                 if param.name in parsed_doc.params and not param.description:
                     param.description = parsed_doc.params[param.name]
 
-            # Determine CLI subcommand name
+            # Determine CLI subcommand name from decorator name= kwarg if present
             func_name = node.name
-            # Check if any decorator provides a name= argument
             cli_subcommand: str | None = func_name
+            tool_name: str = func_name
             for dec in decorators:
                 resolved = _resolve_decorator(dec, aliases)
                 if _is_click_command(resolved) and isinstance(dec, ast.Call):
                     name_node = _get_keyword_value(dec, "name")
                     if name_node is not None:
-                        cli_subcommand = _ast_to_python(name_node)
+                        raw_name = _ast_to_python(name_node)
+                        if raw_name:
+                            cli_subcommand = raw_name  # keep original for CLI invocation
+                            tool_name = raw_name.replace("-", "_")  # sanitize for Python identifier
                     break
 
             tool = ToolDef(
-                name=func_name,
-                description=parsed_doc.summary or f"Run {func_name}",
+                name=tool_name,
+                description=parsed_doc.summary or f"Run {tool_name}",
                 parameters=params,
                 return_description=parsed_doc.returns or "Command output",
                 source_module=source_module,

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -49,7 +50,10 @@ def _collect_tools(config_path: Path) -> tuple[list[ToolDef], object]:
             try:
                 source = py_file.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(py_file))
-            except (SyntaxError, OSError):
+            except SyntaxError as exc:
+                click.echo(f"Warning: skipping {py_file}: {exc}", err=True)  # issue #4
+                continue
+            except OSError:
                 continue
 
             # Try Click first, then argparse
@@ -93,7 +97,13 @@ def main() -> None:
     default=False,
     help="Print the generated file to stdout instead of writing it.",
 )
-def generate(config_path: Path, output_path: Path | None, dry_run: bool) -> None:
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Overwrite the server scaffold even if it already exists.",
+)
+def generate(config_path: Path, output_path: Path | None, dry_run: bool, force: bool) -> None:
     """Generate an MCP tools module and (once) a server scaffold from CLI tools."""
     try:
         tools, config = _collect_tools(config_path)
@@ -118,7 +128,11 @@ def generate(config_path: Path, output_path: Path | None, dry_run: bool) -> None
     else:
         dest.write_text(module_content, encoding="utf-8")
         click.echo(f"Generated {dest} with {len(tools)} tool(s).")
-        if not config.server_file.exists():
+        if force and config.server_file.exists():
+            click.echo(f"Warning: overwriting existing {config.server_file} (--force).", err=True)
+            config.server_file.write_text(scaffold_content, encoding="utf-8")
+            click.echo(f"Regenerated server scaffold: {config.server_file}")
+        elif not config.server_file.exists():
             config.server_file.write_text(scaffold_content, encoding="utf-8")
             click.echo(f"Created server scaffold: {config.server_file}")
         else:
@@ -134,7 +148,15 @@ def generate(config_path: Path, output_path: Path | None, dry_run: bool) -> None
     type=click.Path(exists=False, path_type=Path),
     help="Path to pyproject.toml with [tool.cli2mcp] config.",
 )
-def list_tools(config_path: Path) -> None:
+@click.option(
+    "--format",
+    "output_format",
+    default="text",
+    show_default=True,
+    type=click.Choice(["text", "json"]),
+    help="Output format.",
+)
+def list_tools(config_path: Path, output_format: str) -> None:
     """List discovered CLI tools without generating the server file."""
     try:
         tools, _ = _collect_tools(config_path)
@@ -146,16 +168,41 @@ def list_tools(config_path: Path) -> None:
         click.echo("No CLI tools discovered.")
         return
 
-    click.echo(f"Discovered {len(tools)} tool(s):\n")
-    for tool in tools:
-        cmd = tool.cli_command
-        if tool.cli_subcommand:
-            cmd = f"{cmd} {tool.cli_subcommand}"
-        click.echo(f"  {tool.name} ({tool.framework})")
-        click.echo(f"    command : {cmd}")
-        click.echo(f"    summary : {tool.description}")
-        click.echo(f"    params  : {len(tool.parameters)}")
-        click.echo()
+    if output_format == "json":
+        data = []
+        for tool in tools:
+            cmd = tool.cli_command
+            if tool.cli_subcommand:
+                cmd = f"{cmd} {tool.cli_subcommand}"
+            data.append({
+                "name": tool.name,
+                "framework": tool.framework,
+                "command": cmd,
+                "description": tool.description,
+                "param_count": len(tool.parameters),
+                "params": [
+                    {
+                        "name": p.name,
+                        "type": p.type_annotation,
+                        "required": p.required,
+                        "default": p.default,
+                        "choices": p.choices,
+                    }
+                    for p in tool.parameters
+                ],
+            })
+        click.echo(json.dumps(data, indent=2))
+    else:
+        click.echo(f"Discovered {len(tools)} tool(s):\n")
+        for tool in tools:
+            cmd = tool.cli_command
+            if tool.cli_subcommand:
+                cmd = f"{cmd} {tool.cli_subcommand}"
+            click.echo(f"  {tool.name} ({tool.framework})")
+            click.echo(f"    command : {cmd}")
+            click.echo(f"    summary : {tool.description}")
+            click.echo(f"    params  : {len(tool.parameters)}")
+            click.echo()
 
 
 @main.command()
@@ -172,3 +219,56 @@ def validate(file: Path) -> None:
     else:
         click.echo(f"{file}: FAILED\n{result.stderr}", err=True)
         sys.exit(1)
+
+
+_INIT_TEMPLATE = """\
+[tool.cli2mcp]
+server_name = "{server_name}"
+entry_point = "{entry_point}"
+source_dirs = ["{source_dir}"]
+output_file = "mcp_tools_generated.py"
+server_file = "mcp_server.py"
+include_patterns = ["*.py"]
+exclude_patterns = ["test_*", "_*"]
+# subprocess_timeout = 30
+"""
+
+
+@main.command()
+@click.option("--server-name", prompt="MCP server name", help="Name of the MCP server.")
+@click.option("--entry-point", prompt="CLI entry point (e.g. mycli)", help="The CLI command name.")
+@click.option(
+    "--source-dir",
+    prompt="Source directory containing CLI code",
+    default="src",
+    show_default=True,
+    help="Directory containing CLI source files.",
+)
+@click.option(
+    "--config",
+    "config_path",
+    default="pyproject.toml",
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Path to pyproject.toml to update.",
+)
+def init(server_name: str, entry_point: str, source_dir: str, config_path: Path) -> None:
+    """Scaffold a [tool.cli2mcp] section in pyproject.toml."""
+    section = _INIT_TEMPLATE.format(
+        server_name=server_name,
+        entry_point=entry_point,
+        source_dir=source_dir,
+    )
+
+    if config_path.exists():
+        existing = config_path.read_text(encoding="utf-8")
+        if "[tool.cli2mcp]" in existing:
+            click.echo(
+                f"Error: [tool.cli2mcp] section already exists in {config_path}.", err=True
+            )
+            sys.exit(1)
+        config_path.write_text(existing.rstrip() + "\n\n" + section, encoding="utf-8")
+        click.echo(f"Appended [tool.cli2mcp] section to {config_path}.")
+    else:
+        config_path.write_text(section, encoding="utf-8")
+        click.echo(f"Created {config_path} with [tool.cli2mcp] section.")

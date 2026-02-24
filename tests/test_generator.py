@@ -237,3 +237,84 @@ def test_scaffold_valid_python_syntax(sample_config):
 def test_scaffold_uses_custom_module_stem(sample_config):
     result = generate_server_scaffold(sample_config, "my_custom_tools")
     assert "from my_custom_tools import _register_tools" in result
+
+
+# --- subprocess timeout (issue #3) ---
+
+def test_generate_no_timeout_by_default(sample_config, simple_tool):
+    result = generate_module([simple_tool], sample_config)
+    assert "timeout=" not in result
+
+
+def test_generate_with_timeout(simple_tool):
+    config = Config(
+        server_name="Test",
+        entry_point="mytool",
+        source_dirs=[Path("src")],
+        output_file=Path("mcp_tools_generated.py"),
+        server_file=Path("mcp_server.py"),
+        subprocess_timeout=30,
+    )
+    result = generate_module([simple_tool], config)
+    assert "timeout=30" in result
+
+
+# --- choices in docstring (issue #7) ---
+
+def test_generate_choices_in_docstring(sample_config):
+    tool = ToolDef(
+        name="export",
+        description="Export data.",
+        parameters=[
+            ParamDef(
+                name="fmt",
+                cli_flags=["--fmt"],
+                type_annotation="str",
+                default="json",
+                required=False,
+                description="Output format.",
+                choices=["json", "csv", "xml"],
+            ),
+        ],
+        return_description="Result.",
+        source_module="mypackage.cli",
+        source_function="export",
+        cli_command="mytool",
+        cli_subcommand="export",
+        framework="click",
+    )
+    result = generate_module([tool], sample_config)
+    assert "json" in result
+    assert "csv" in result
+    assert "xml" in result
+
+
+# --- is_multiple generates list args (issue #7) ---
+
+def test_generate_multiple_param_repeats_flag(sample_config):
+    tool = ToolDef(
+        name="tag",
+        description="Tag something.",
+        parameters=[
+            ParamDef(
+                name="tags",
+                cli_flags=["--tags"],
+                type_annotation="list[str]",
+                default=None,
+                required=True,
+                description="Tags to apply.",
+                is_multiple=True,
+            ),
+        ],
+        return_description="Result.",
+        source_module="mypackage.cli",
+        source_function="tag",
+        cli_command="mytool",
+        cli_subcommand="tag",
+        framework="click",
+    )
+    result = generate_module([tool], sample_config)
+    # Multi-value flag should repeat the flag for each value
+    assert "for v in tags" in result
+    # Must be valid Python
+    ast.parse(result)
