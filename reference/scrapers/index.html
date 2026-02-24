@@ -1605,10 +1605,7 @@
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>src/cli2mcp/scrapers/click_scraper.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-232">232</a></span>
 <span class="normal"><a href="#__codelineno-0-233">233</a></span>
 <span class="normal"><a href="#__codelineno-0-234">234</a></span>
 <span class="normal"><a href="#__codelineno-0-235">235</a></span>
@@ -1703,105 +1700,108 @@
 <span class="normal"><a href="#__codelineno-0-324">324</a></span>
 <span class="normal"><a href="#__codelineno-0-325">325</a></span>
 <span class="normal"><a href="#__codelineno-0-326">326</a></span>
-<span class="normal"><a href="#__codelineno-0-327">327</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="k">class</span><span class="w"> </span><span class="nc">ClickScraper</span><span class="p">(</span><span class="n">BaseScraper</span><span class="p">):</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Scrapes Click-based CLI tools from Python source files using AST analysis.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_module</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">cli_command</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="o">=</span> <span class="n">source_module</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span> <span class="o">=</span> <span class="n">cli_command</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if this file imports click.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span><span class="p">):</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>                <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>                    <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;click&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>                        <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">ImportFrom</span><span class="p">):</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>                <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">module</span> <span class="o">==</span> <span class="s2">&quot;click&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>                    <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">scrape_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]:</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse a Python source file and return Click ToolDef objects.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>            <span class="n">source</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>            <span class="k">return</span> <span class="p">[]</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">except</span> <span class="ne">SyntaxError</span><span class="p">:</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>            <span class="k">return</span> <span class="p">[]</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">detect</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="k">class</span><span class="w"> </span><span class="nc">ClickScraper</span><span class="p">(</span><span class="n">BaseScraper</span><span class="p">):</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Scrapes Click-based CLI tools from Python source files using AST analysis.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_module</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">cli_command</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="o">=</span> <span class="n">source_module</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span> <span class="o">=</span> <span class="n">cli_command</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if this file imports click or a click-compatible module.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span><span class="p">):</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>                <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>                    <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">_CLICK_MODULES</span><span class="p">:</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>                        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">ImportFrom</span><span class="p">):</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>                <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">module</span> <span class="ow">in</span> <span class="n">_CLICK_MODULES</span><span class="p">:</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>                    <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">scrape_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]:</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse a Python source file and return Click ToolDef objects.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="n">source</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>            <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>            <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="k">except</span> <span class="ne">SyntaxError</span><span class="p">:</span>
 <a id="__codelineno-0-260" name="__codelineno-0-260"></a>            <span class="k">return</span> <span class="p">[]</span>
 <a id="__codelineno-0-261" name="__codelineno-0-261"></a>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="n">aliases</span> <span class="o">=</span> <span class="n">_build_alias_map</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">detect</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>            <span class="k">return</span> <span class="p">[]</span>
 <a id="__codelineno-0-264" name="__codelineno-0-264"></a>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="c1"># Derive module name from path if not provided</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="n">source_module</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="ow">or</span> <span class="n">path</span><span class="o">.</span><span class="n">stem</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">aliases</span> <span class="o">=</span> <span class="n">_build_alias_map</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 <a id="__codelineno-0-267" name="__codelineno-0-267"></a>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">):</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>                <span class="k">continue</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>            <span class="n">decorators</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">decorator_list</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>            <span class="n">is_command</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>            <span class="n">params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParamDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>            <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>                <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>                <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">):</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>                    <span class="n">is_command</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>                <span class="k">elif</span> <span class="n">_is_click_option</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>                    <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_option_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>                <span class="k">elif</span> <span class="n">_is_click_argument</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>                    <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_argument_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_command</span><span class="p">:</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>                <span class="k">continue</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="c1"># Derive module name from path if not provided</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="n">source_module</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="ow">or</span> <span class="n">path</span><span class="o">.</span><span class="n">stem</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">):</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>                <span class="k">continue</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>            <span class="n">decorators</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">decorator_list</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>            <span class="n">is_command</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="n">params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParamDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>            <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>                <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>                <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">):</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>                    <span class="n">is_command</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>                <span class="k">elif</span> <span class="n">_is_click_option</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>                    <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_option_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>                <span class="k">elif</span> <span class="n">_is_click_argument</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>                    <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_argument_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
 <a id="__codelineno-0-287" name="__codelineno-0-287"></a>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="c1"># Decorators are applied bottom-up, so reverse to get natural order</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>            <span class="n">params</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_command</span><span class="p">:</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>                <span class="k">continue</span>
 <a id="__codelineno-0-290" name="__codelineno-0-290"></a>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>            <span class="n">raw_docstring</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">get_docstring</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>            <span class="n">parsed_doc</span> <span class="o">=</span> <span class="n">parse_numpy_docstring</span><span class="p">(</span><span class="n">raw_docstring</span><span class="p">)</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>            <span class="c1"># Decorators are applied bottom-up, so reverse to get natural order</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>            <span class="n">params</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
 <a id="__codelineno-0-293" name="__codelineno-0-293"></a>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>            <span class="c1"># Merge docstring param descriptions into ParamDef</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>                <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>                    <span class="n">param</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>            <span class="c1"># Determine CLI subcommand name from decorator name= kwarg if present</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>            <span class="n">func_name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>            <span class="n">cli_subcommand</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">func_name</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>            <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">func_name</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>            <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>                <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>                <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>                    <span class="n">name_node</span> <span class="o">=</span> <span class="n">_get_keyword_value</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>                    <span class="k">if</span> <span class="n">name_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>                        <span class="n">raw_name</span> <span class="o">=</span> <span class="n">_ast_to_python</span><span class="p">(</span><span class="n">name_node</span><span class="p">)</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>                        <span class="k">if</span> <span class="n">raw_name</span><span class="p">:</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>                            <span class="n">cli_subcommand</span> <span class="o">=</span> <span class="n">raw_name</span>  <span class="c1"># keep original for CLI invocation</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>                            <span class="n">tool_name</span> <span class="o">=</span> <span class="n">raw_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>  <span class="c1"># sanitize for Python identifier</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>                    <span class="k">break</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>            <span class="n">tool</span> <span class="o">=</span> <span class="n">ToolDef</span><span class="p">(</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>                <span class="n">name</span><span class="o">=</span><span class="n">tool_name</span><span class="p">,</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>                <span class="n">description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">summary</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>                <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>                <span class="n">return_description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">returns</span> <span class="ow">or</span> <span class="s2">&quot;Command output&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>                <span class="n">source_module</span><span class="o">=</span><span class="n">source_module</span><span class="p">,</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>                <span class="n">source_function</span><span class="o">=</span><span class="n">func_name</span><span class="p">,</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>                <span class="n">cli_command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span><span class="p">,</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>                <span class="n">cli_subcommand</span><span class="o">=</span><span class="n">cli_subcommand</span><span class="p">,</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>                <span class="n">framework</span><span class="o">=</span><span class="s2">&quot;click&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>            <span class="p">)</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>            <span class="n">tools</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tool</span><span class="p">)</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="k">return</span> <span class="n">tools</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>            <span class="n">raw_docstring</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">get_docstring</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>            <span class="n">parsed_doc</span> <span class="o">=</span> <span class="n">parse_numpy_docstring</span><span class="p">(</span><span class="n">raw_docstring</span><span class="p">)</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>            <span class="c1"># Merge docstring param descriptions into ParamDef</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>                <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>                    <span class="n">param</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>            <span class="c1"># Determine CLI subcommand name from decorator name= kwarg if present</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>            <span class="n">func_name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>            <span class="n">cli_subcommand</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">func_name</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>            <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">func_name</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>            <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>                <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>                <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>                    <span class="n">name_node</span> <span class="o">=</span> <span class="n">_get_keyword_value</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>                    <span class="k">if</span> <span class="n">name_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>                        <span class="n">raw_name</span> <span class="o">=</span> <span class="n">_ast_to_python</span><span class="p">(</span><span class="n">name_node</span><span class="p">)</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>                        <span class="k">if</span> <span class="n">raw_name</span><span class="p">:</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>                            <span class="n">cli_subcommand</span> <span class="o">=</span> <span class="n">raw_name</span>  <span class="c1"># keep original for CLI invocation</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>                            <span class="n">tool_name</span> <span class="o">=</span> <span class="n">raw_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>  <span class="c1"># sanitize for Python identifier</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>                    <span class="k">break</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>            <span class="n">tool</span> <span class="o">=</span> <span class="n">ToolDef</span><span class="p">(</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>                <span class="n">name</span><span class="o">=</span><span class="n">tool_name</span><span class="p">,</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>                <span class="n">description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">summary</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>                <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>                <span class="n">return_description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">returns</span> <span class="ow">or</span> <span class="s2">&quot;Command output&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>                <span class="n">source_module</span><span class="o">=</span><span class="n">source_module</span><span class="p">,</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>                <span class="n">source_function</span><span class="o">=</span><span class="n">func_name</span><span class="p">,</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>                <span class="n">cli_command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span><span class="p">,</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>                <span class="n">cli_subcommand</span><span class="o">=</span><span class="n">cli_subcommand</span><span class="p">,</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>                <span class="n">framework</span><span class="o">=</span><span class="s2">&quot;click&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>            <span class="p">)</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>            <span class="n">tools</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tool</span><span class="p">)</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="k">return</span> <span class="n">tools</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -1832,11 +1832,11 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/cli2mcp/scrapers/click_scraper.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_module</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">cli_command</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="o">=</span> <span class="n">source_module</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span> <span class="o">=</span> <span class="n">cli_command</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_module</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">cli_command</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="o">=</span> <span class="n">source_module</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span> <span class="o">=</span> <span class="n">cli_command</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1854,32 +1854,32 @@
 
     <div class="doc doc-contents ">
 
-        <p>Return True if this file imports click.</p>
+        <p>Return True if this file imports click or a click-compatible module.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/cli2mcp/scrapers/click_scraper.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-239">239</a></span>
 <span class="normal"><a href="#__codelineno-0-240">240</a></span>
 <span class="normal"><a href="#__codelineno-0-241">241</a></span>
 <span class="normal"><a href="#__codelineno-0-242">242</a></span>
 <span class="normal"><a href="#__codelineno-0-243">243</a></span>
 <span class="normal"><a href="#__codelineno-0-244">244</a></span>
 <span class="normal"><a href="#__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#__codelineno-0-246">246</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True if this file imports click.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span><span class="p">):</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>            <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>                <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;click&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>                    <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">ImportFrom</span><span class="p">):</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">module</span> <span class="o">==</span> <span class="s2">&quot;click&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>                <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="k">return</span> <span class="kc">False</span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True if this file imports click or a click-compatible module.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span><span class="p">):</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>                <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">_CLICK_MODULES</span><span class="p">:</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>                    <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">ImportFrom</span><span class="p">):</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">module</span> <span class="ow">in</span> <span class="n">_CLICK_MODULES</span><span class="p">:</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>                <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="k">return</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1902,10 +1902,7 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/cli2mcp/scrapers/click_scraper.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-251">251</a></span>
 <span class="normal"><a href="#__codelineno-0-252">252</a></span>
 <span class="normal"><a href="#__codelineno-0-253">253</a></span>
 <span class="normal"><a href="#__codelineno-0-254">254</a></span>
@@ -1981,86 +1978,89 @@
 <span class="normal"><a href="#__codelineno-0-324">324</a></span>
 <span class="normal"><a href="#__codelineno-0-325">325</a></span>
 <span class="normal"><a href="#__codelineno-0-326">326</a></span>
-<span class="normal"><a href="#__codelineno-0-327">327</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-248" name="__codelineno-0-248"></a><span class="k">def</span><span class="w"> </span><span class="nf">scrape_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]:</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse a Python source file and return Click ToolDef objects.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="n">source</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">return</span> <span class="p">[]</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">except</span> <span class="ne">SyntaxError</span><span class="p">:</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="k">return</span> <span class="p">[]</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">detect</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="k">def</span><span class="w"> </span><span class="nf">scrape_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]:</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse a Python source file and return Click ToolDef objects.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="n">source</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">except</span> <span class="ne">SyntaxError</span><span class="p">:</span>
 <a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="k">return</span> <span class="p">[]</span>
 <a id="__codelineno-0-261" name="__codelineno-0-261"></a>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="n">aliases</span> <span class="o">=</span> <span class="n">_build_alias_map</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">detect</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="k">return</span> <span class="p">[]</span>
 <a id="__codelineno-0-264" name="__codelineno-0-264"></a>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="c1"># Derive module name from path if not provided</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="n">source_module</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="ow">or</span> <span class="n">path</span><span class="o">.</span><span class="n">stem</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="n">aliases</span> <span class="o">=</span> <span class="n">_build_alias_map</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 <a id="__codelineno-0-267" name="__codelineno-0-267"></a>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">):</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="n">decorators</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">decorator_list</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>        <span class="n">is_command</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>        <span class="n">params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParamDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>            <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">):</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>                <span class="n">is_command</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>            <span class="k">elif</span> <span class="n">_is_click_option</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>                <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_option_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>            <span class="k">elif</span> <span class="n">_is_click_argument</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>                <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_argument_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_command</span><span class="p">:</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="c1"># Derive module name from path if not provided</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>    <span class="n">source_module</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_module</span> <span class="ow">or</span> <span class="n">path</span><span class="o">.</span><span class="n">stem</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">):</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="n">decorators</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">decorator_list</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="n">is_command</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="n">params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParamDef</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>        <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>            <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>            <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">):</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>                <span class="n">is_command</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="k">elif</span> <span class="n">_is_click_option</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>                <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_option_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="k">elif</span> <span class="n">_is_click_argument</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>                <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parse_argument_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">))</span>
 <a id="__codelineno-0-287" name="__codelineno-0-287"></a>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="c1"># Decorators are applied bottom-up, so reverse to get natural order</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="n">params</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_command</span><span class="p">:</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>            <span class="k">continue</span>
 <a id="__codelineno-0-290" name="__codelineno-0-290"></a>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>        <span class="n">raw_docstring</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">get_docstring</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="n">parsed_doc</span> <span class="o">=</span> <span class="n">parse_numpy_docstring</span><span class="p">(</span><span class="n">raw_docstring</span><span class="p">)</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>        <span class="c1"># Decorators are applied bottom-up, so reverse to get natural order</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="n">params</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
 <a id="__codelineno-0-293" name="__codelineno-0-293"></a>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="c1"># Merge docstring param descriptions into ParamDef</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>                <span class="n">param</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="c1"># Determine CLI subcommand name from decorator name= kwarg if present</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="n">func_name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="n">cli_subcommand</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">func_name</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">func_name</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>            <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>            <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>                <span class="n">name_node</span> <span class="o">=</span> <span class="n">_get_keyword_value</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>                <span class="k">if</span> <span class="n">name_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>                    <span class="n">raw_name</span> <span class="o">=</span> <span class="n">_ast_to_python</span><span class="p">(</span><span class="n">name_node</span><span class="p">)</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>                    <span class="k">if</span> <span class="n">raw_name</span><span class="p">:</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>                        <span class="n">cli_subcommand</span> <span class="o">=</span> <span class="n">raw_name</span>  <span class="c1"># keep original for CLI invocation</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>                        <span class="n">tool_name</span> <span class="o">=</span> <span class="n">raw_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>  <span class="c1"># sanitize for Python identifier</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>                <span class="k">break</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>        <span class="n">tool</span> <span class="o">=</span> <span class="n">ToolDef</span><span class="p">(</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>            <span class="n">name</span><span class="o">=</span><span class="n">tool_name</span><span class="p">,</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>            <span class="n">description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">summary</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>            <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>            <span class="n">return_description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">returns</span> <span class="ow">or</span> <span class="s2">&quot;Command output&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>            <span class="n">source_module</span><span class="o">=</span><span class="n">source_module</span><span class="p">,</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>            <span class="n">source_function</span><span class="o">=</span><span class="n">func_name</span><span class="p">,</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>            <span class="n">cli_command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span><span class="p">,</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>            <span class="n">cli_subcommand</span><span class="o">=</span><span class="n">cli_subcommand</span><span class="p">,</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>            <span class="n">framework</span><span class="o">=</span><span class="s2">&quot;click&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="p">)</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="n">tools</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tool</span><span class="p">)</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>    <span class="k">return</span> <span class="n">tools</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="n">raw_docstring</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">get_docstring</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="n">parsed_doc</span> <span class="o">=</span> <span class="n">parse_numpy_docstring</span><span class="p">(</span><span class="n">raw_docstring</span><span class="p">)</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="c1"># Merge docstring param descriptions into ParamDef</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>                <span class="n">param</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">parsed_doc</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="c1"># Determine CLI subcommand name from decorator name= kwarg if present</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="n">func_name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>        <span class="n">cli_subcommand</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">func_name</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">func_name</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>        <span class="k">for</span> <span class="n">dec</span> <span class="ow">in</span> <span class="n">decorators</span><span class="p">:</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>            <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_decorator</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>            <span class="k">if</span> <span class="n">_is_click_command</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>                <span class="n">name_node</span> <span class="o">=</span> <span class="n">_get_keyword_value</span><span class="p">(</span><span class="n">dec</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>                <span class="k">if</span> <span class="n">name_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>                    <span class="n">raw_name</span> <span class="o">=</span> <span class="n">_ast_to_python</span><span class="p">(</span><span class="n">name_node</span><span class="p">)</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>                    <span class="k">if</span> <span class="n">raw_name</span><span class="p">:</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>                        <span class="n">cli_subcommand</span> <span class="o">=</span> <span class="n">raw_name</span>  <span class="c1"># keep original for CLI invocation</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>                        <span class="n">tool_name</span> <span class="o">=</span> <span class="n">raw_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>  <span class="c1"># sanitize for Python identifier</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>                <span class="k">break</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>        <span class="n">tool</span> <span class="o">=</span> <span class="n">ToolDef</span><span class="p">(</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>            <span class="n">name</span><span class="o">=</span><span class="n">tool_name</span><span class="p">,</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>            <span class="n">description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">summary</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>            <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>            <span class="n">return_description</span><span class="o">=</span><span class="n">parsed_doc</span><span class="o">.</span><span class="n">returns</span> <span class="ow">or</span> <span class="s2">&quot;Command output&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>            <span class="n">source_module</span><span class="o">=</span><span class="n">source_module</span><span class="p">,</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>            <span class="n">source_function</span><span class="o">=</span><span class="n">func_name</span><span class="p">,</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>            <span class="n">cli_command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cli_command</span><span class="p">,</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>            <span class="n">cli_subcommand</span><span class="o">=</span><span class="n">cli_subcommand</span><span class="p">,</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>            <span class="n">framework</span><span class="o">=</span><span class="s2">&quot;click&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="p">)</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>        <span class="n">tools</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tool</span><span class="p">)</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="k">return</span> <span class="n">tools</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
