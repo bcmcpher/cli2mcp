@@ -18,8 +18,8 @@ source_dirs = ["src/mypackage"]
 server_name      = "My Project MCP Server"
 entry_point      = "myapp"
 source_dirs      = ["src/mypackage", "src/plugins"]
-output_file      = "mcp_tools_generated.py"
-server_file      = "mcp_server.py"
+output_file      = "mcp/mcp_tools_generated.py"
+server_file      = "mcp/mcp_server.py"
 include_patterns = ["*.py"]
 exclude_patterns = ["test_*", "_*", "conftest.py"]
 subprocess_timeout = 30
@@ -32,8 +32,8 @@ subprocess_timeout = 30
 | `server_name` | yes | — | Name passed to `FastMCP(...)` in the generated server. |
 | `entry_point` | yes | — | CLI command name on PATH (e.g. `myapp`). Used as the first token in every subprocess call. |
 | `source_dirs` | yes | — | List of directories to scan for CLI source files, relative to the `pyproject.toml` directory. |
-| `output_file` | no | `mcp_tools_generated.py` | Path for the auto-generated tools module. Always overwritten by `cli2mcp generate`. |
-| `server_file` | no | `mcp_server.py` | Path for the one-time server scaffold. Written only if the file does not exist (unless `--force` is passed). |
+| `output_file` | no | `mcp/mcp_tools_generated.py` | Path for the auto-generated tools module. Always overwritten by `cli2mcp generate`. |
+| `server_file` | no | `mcp/mcp_server.py` | Path for the one-time server scaffold. Written only if the file does not exist (unless `--force` is passed). |
 | `include_patterns` | no | `["*.py"]` | Glob patterns a filename must match to be scanned. |
 | `exclude_patterns` | no | `["test_*", "_*"]` | Glob patterns that cause a file to be skipped even if it matches `include_patterns`. |
 | `subprocess_timeout` | no | `None` (no limit) | Maximum seconds to wait for a subprocess call before raising `TimeoutExpired`. |

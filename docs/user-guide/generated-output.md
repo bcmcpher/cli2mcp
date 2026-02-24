@@ -2,7 +2,7 @@
 
 `cli2mcp generate` produces two files with distinct lifecycles.
 
-## `mcp_tools_generated.py` — always overwritten
+## `mcp/mcp_tools_generated.py` — always overwritten
 
 This file is regenerated on every `cli2mcp generate` run. **Do not edit it** — your changes will be lost.
 
@@ -82,7 +82,7 @@ Each tool includes a commented-out direct-import call. Uncomment it if your CLI 
 
 ---
 
-## `mcp_server.py` — written once
+## `mcp/mcp_server.py` — written once
 
 This file is written only on the first `generate` run (or when `--force` is passed). Edit it freely — it will not be overwritten.
 

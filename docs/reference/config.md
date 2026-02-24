@@ -17,8 +17,8 @@ A frozen snapshot of all settings read from `[tool.cli2mcp]`. Constructed by `lo
 | `server_name` | `str` | — | Passed to `FastMCP(...)` in the generated server. |
 | `entry_point` | `str` | — | CLI command name on PATH. |
 | `source_dirs` | `list[Path]` | — | Resolved absolute paths to scan. |
-| `output_file` | `Path` | `mcp_tools_generated.py` | Tools module output path. |
-| `server_file` | `Path` | `mcp_server.py` | Server scaffold output path. |
+| `output_file` | `Path` | `mcp/mcp_tools_generated.py` | Tools module output path. |
+| `server_file` | `Path` | `mcp/mcp_server.py` | Server scaffold output path. |
 | `include_patterns` | `list[str]` | `["*.py"]` | Filename glob patterns to include. |
 | `exclude_patterns` | `list[str]` | `["test_*", "_*"]` | Filename glob patterns to exclude. |
 | `subprocess_timeout` | `int \| None` | `None` | Subprocess timeout in seconds. |

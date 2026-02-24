@@ -3,7 +3,7 @@
 ## Running the server directly
 
 ```bash
-python mcp_server.py
+python mcp/mcp_server.py
 ```
 
 The server starts and listens for MCP connections over stdio (the default FastMCP transport).
@@ -13,7 +13,7 @@ The server starts and listens for MCP connections over stdio (the default FastMC
 The MCP Inspector is a browser-based tool for testing your server interactively:
 
 ```bash
-mcp dev mcp_server.py
+mcp dev mcp/mcp_server.py
 ```
 
 This starts both the server and the inspector UI, letting you call tools and inspect inputs/outputs without a full MCP host.
@@ -27,7 +27,7 @@ Add an entry to your `claude_desktop_config.json`:
   "mcpServers": {
     "my-project": {
       "command": "python",
-      "args": ["/absolute/path/to/your/project/mcp_server.py"]
+      "args": ["/absolute/path/to/your/project/mcp/mcp_server.py"]
     }
   }
 }
@@ -44,14 +44,14 @@ Restart Claude Desktop after editing the config.
 
 The generated server delegates to your CLI via `subprocess.run()`. This means:
 
-- Your CLI entry point (`entry_point` in config) must be installed and on `PATH` in the same environment where `mcp_server.py` runs.
+- Your CLI entry point (`entry_point` in config) must be installed and on `PATH` in the same environment where `mcp/mcp_server.py` runs.
 - The `mcp` package (FastMCP) must be installed in that environment.
 
 A typical setup for a project called `myapp`:
 
 ```bash
 pip install myapp mcp
-python mcp_server.py
+python mcp/mcp_server.py
 ```
 
 ## Using a virtual environment
@@ -60,7 +60,7 @@ If your CLI lives in a virtual environment, run the server inside it:
 
 ```bash
 source .venv/bin/activate
-python mcp_server.py
+python mcp/mcp_server.py
 ```
 
 Or point Claude Desktop at the venv's Python directly:
@@ -70,7 +70,7 @@ Or point Claude Desktop at the venv's Python directly:
   "mcpServers": {
     "my-project": {
       "command": "/path/to/.venv/bin/python",
-      "args": ["/path/to/mcp_server.py"]
+      "args": ["/path/to/mcp/mcp_server.py"]
     }
   }
 }

@@ -25,8 +25,8 @@ This appends the following block to your `pyproject.toml` (or creates the file i
 server_name = "My Project MCP Server"
 entry_point = "myapp"
 source_dirs = ["src/mypackage"]
-output_file = "mcp_tools_generated.py"
-server_file = "mcp_server.py"
+output_file = "mcp/mcp_tools_generated.py"
+server_file = "mcp/mcp_server.py"
 include_patterns = ["*.py"]
 exclude_patterns = ["test_*", "_*"]
 ```
@@ -68,15 +68,15 @@ cli2mcp generate
 On the first run this writes **both** files:
 
 ```
-Generated mcp_tools_generated.py with 3 tool(s).
-Created server scaffold: mcp_server.py
+Generated mcp/mcp_tools_generated.py with 3 tool(s).
+Created server scaffold: mcp/mcp_server.py
 ```
 
-On subsequent runs only `mcp_tools_generated.py` is updated; `mcp_server.py` is left untouched:
+On subsequent runs only `mcp/mcp_tools_generated.py` is updated; `mcp/mcp_server.py` is left untouched:
 
 ```
-Generated mcp_tools_generated.py with 3 tool(s).
-Skipped mcp_server.py (already exists).
+Generated mcp/mcp_tools_generated.py with 3 tool(s).
+Skipped mcp/mcp_server.py (already exists).
 ```
 
 Use `--dry-run` to preview the output without writing:
@@ -88,13 +88,13 @@ cli2mcp generate --dry-run
 ## Step 4 — Run the server
 
 ```bash
-python mcp_server.py
+python mcp/mcp_server.py
 ```
 
 Or use the MCP inspector for interactive testing:
 
 ```bash
-mcp dev mcp_server.py
+mcp dev mcp/mcp_server.py
 ```
 
 Your CLI tools are now available as MCP tools to any compatible host (Claude Desktop, custom agents, etc.).

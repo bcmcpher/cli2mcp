@@ -9,14 +9,14 @@
 
 `cli2mcp` reads your existing Click or argparse CLI source code **without importing it** (AST-only, no side effects). It extracts commands, options, types, and NumPy docstrings, then writes two files:
 
-- **`mcp_tools_generated.py`** — always overwritten on each `generate` run; contains all auto-generated `@mcp.tool()` functions.
-- **`mcp_server.py`** — written **once** (never overwritten); imports the tools module and gives you a stable place to add your own custom tools.
+- **`mcp/mcp_tools_generated.py`** — always overwritten on each `generate` run; contains all auto-generated `@mcp.tool()` functions.
+- **`mcp/mcp_server.py`** — written **once** (never overwritten); imports the tools module and gives you a stable place to add your own custom tools.
 
 ## How it works
 
 ```
-your CLI source  →  cli2mcp  →  mcp_tools_generated.py  ←─ always regenerated
-     (AST)                       mcp_server.py           ←─ yours to keep
+your CLI source  →  cli2mcp  →  mcp/mcp_tools_generated.py  ←─ always regenerated
+     (AST)                       mcp/mcp_server.py           ←─ yours to keep
                                        ↓
                            MCP host (Claude, Inspector…)
 ```
@@ -36,7 +36,7 @@ your CLI source  →  cli2mcp  →  mcp_tools_generated.py  ←─ always regene
 cli2mcp generate
 
 # 2. Run the generated server
-python mcp_server.py
+python mcp/mcp_server.py
 ```
 
 See the [Quick Start](getting-started/quickstart.md) for a full walkthrough.
