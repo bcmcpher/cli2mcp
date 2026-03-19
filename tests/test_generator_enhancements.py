@@ -52,7 +52,7 @@ class TestPassContext:
         )
         result = generate_module([tool], base_config)
         # ctx should NOT appear in the function signature
-        assert "ctx" not in result.split("def greet(")[1].split(")")[0]
+        assert "ctx" not in result.split("def mytool_greet(")[1].split(")")[0]
 
     def test_real_param_still_in_signature(self, base_config):
         tool = _make_tool(
@@ -113,7 +113,7 @@ class TestHiddenParams:
             ],
         )
         result = generate_module([tool], base_config)
-        sig_line = result.split("def greet(")[1].split(")")[0]
+        sig_line = result.split("def mytool_greet(")[1].split(")")[0]
         assert "token" not in sig_line
 
     def test_hidden_param_not_in_subprocess_call(self, base_config):
@@ -146,7 +146,7 @@ class TestPreferDirectImport:
     def test_default_returns_str(self, base_config):
         tool = _make_tool(return_type="dict")
         result = generate_module([tool], base_config)
-        assert "def greet() -> str:" in result
+        assert "def mytool_greet() -> str:" in result
 
     def test_prefer_direct_import_uses_return_type(self):
         config = Config(
@@ -159,7 +159,7 @@ class TestPreferDirectImport:
         )
         tool = _make_tool(return_type="dict")
         result = generate_module([tool], config)
-        assert "def greet() -> dict:" in result
+        assert "def mytool_greet() -> dict:" in result
 
     def test_syntax_valid_with_prefer_direct_import(self):
         config = Config(
@@ -315,3 +315,147 @@ def test_all_features_combined_valid_syntax(base_config):
     )
     result = generate_module([tool], config)
     ast.parse(result)
+
+
+# ---------------------------------------------------------------------------
+# B: Tool annotations in @mcp.tool() decorator
+# ---------------------------------------------------------------------------
+
+class TestToolAnnotations:
+    def test_annotations_block_present(self, base_config):
+        result = generate_module([_make_tool(name="greet")], base_config)
+        assert "annotations=" in result
+
+    def test_open_world_hint_always_true(self, base_config):
+        result = generate_module([_make_tool(name="greet")], base_config)
+        assert '"openWorldHint": True' in result
+
+    def test_read_prefix_sets_readonly(self, base_config):
+        for prefix in ("list_users", "get_config", "show_status", "fetch_data", "search_items", "find_thing", "describe_all", "read_file"):
+            result = generate_module([_make_tool(name=prefix)], base_config)
+            assert '"readOnlyHint": True' in result, f"expected readOnlyHint for {prefix}"
+            assert '"idempotentHint": True' in result, f"expected idempotentHint for {prefix}"
+
+    def test_non_read_prefix_not_readonly(self, base_config):
+        result = generate_module([_make_tool(name="greet")], base_config)
+        assert '"readOnlyHint": False' in result
+        assert '"idempotentHint": False' in result
+
+    def test_destructive_prefix_sets_destructive(self, base_config):
+        for prefix in ("delete_user", "remove_item", "drop_table", "purge_cache", "wipe_data"):
+            result = generate_module([_make_tool(name=prefix)], base_config)
+            assert '"destructiveHint": True' in result, f"expected destructiveHint for {prefix}"
+
+    def test_non_destructive_not_flagged(self, base_config):
+        result = generate_module([_make_tool(name="greet")], base_config)
+        assert '"destructiveHint": False' in result
+
+    def test_generated_source_is_valid_python(self, base_config):
+        for name in ("list_users", "delete_record", "process_data", "greet"):
+            result = generate_module([_make_tool(name=name)], base_config)
+            ast.parse(result)  # raises SyntaxError if broken
+
+
+# ---------------------------------------------------------------------------
+# B2: Per-tool annotation overrides via config
+# ---------------------------------------------------------------------------
+
+class TestAnnotationOverrides:
+    def _config_with_overrides(self, overrides: dict) -> Config:
+        return Config(
+            server_name="Test Server",
+            entry_point="mytool",
+            source_dirs=[Path("src")],
+            output_file=Path("mcp_tools_generated.py"),
+            server_file=Path("mcp_server.py"),
+            tool_annotations=overrides,
+        )
+
+    def test_override_replaces_inferred_value(self):
+        # "process_data" infers readOnlyHint=False; override to True
+        config = self._config_with_overrides({"process_data": {"readOnlyHint": True}})
+        result = generate_module([_make_tool(name="process_data")], config)
+        assert '"readOnlyHint": True' in result
+
+    def test_partial_override_merges_with_inferred(self):
+        # Override only destructiveHint; other inferred values should remain
+        config = self._config_with_overrides({"process_data": {"destructiveHint": True}})
+        result = generate_module([_make_tool(name="process_data")], config)
+        assert '"destructiveHint": True' in result
+        assert '"openWorldHint": True' in result  # inferred value preserved
+
+    def test_override_does_not_affect_other_tools(self):
+        config = self._config_with_overrides({"process_data": {"readOnlyHint": True}})
+        result = generate_module([_make_tool(name="greet")], config)
+        assert '"readOnlyHint": False' in result  # greet unaffected
+
+    def test_no_overrides_uses_inferred(self, base_config):
+        result = generate_module([_make_tool(name="list_users")], base_config)
+        assert '"readOnlyHint": True' in result
+
+
+# ---------------------------------------------------------------------------
+# C: Service-prefix tool names
+# ---------------------------------------------------------------------------
+
+class TestServicePrefixToolNames:
+    def _config(self, entry_point: str, prefix: bool = True) -> Config:
+        return Config(
+            server_name="Test",
+            entry_point=entry_point,
+            source_dirs=[Path("src")],
+            output_file=Path("out.py"),
+            server_file=Path("server.py"),
+            prefix_tool_names=prefix,
+        )
+
+    def test_prefix_on_by_default(self):
+        config = Config(
+            server_name="Test", entry_point="myapp",
+            source_dirs=[Path("src")], output_file=Path("out.py"), server_file=Path("s.py"),
+        )
+        assert config.prefix_tool_names is True
+
+    def test_prefixed_name_in_def(self):
+        result = generate_module([_make_tool(name="greet")], self._config("myapp"))
+        assert "def myapp_greet(" in result
+
+    def test_prefixed_name_in_decorator(self):
+        result = generate_module([_make_tool(name="greet")], self._config("myapp"))
+        assert 'name="myapp_greet"' in result
+
+    def test_hyphen_normalized_to_underscore(self):
+        result = generate_module([_make_tool(name="greet")], self._config("my-app"))
+        assert "def my_app_greet(" in result
+        assert 'name="my_app_greet"' in result
+
+    def test_mixed_separators_normalized(self):
+        result = generate_module([_make_tool(name="run")], self._config("my.cli-tool"))
+        assert "def my_cli_tool_run(" in result
+
+    def test_prefix_off_uses_raw_name(self):
+        result = generate_module([_make_tool(name="greet")], self._config("myapp", prefix=False))
+        assert "def greet(" in result
+        assert 'name="greet"' in result
+        assert "def myapp_greet(" not in result
+
+    def test_annotation_inference_uses_raw_name(self):
+        # Prefix shouldn't confuse annotation inference — "list_users" should still be readOnly
+        # even though with prefix it becomes "myapp_list_users"
+        result = generate_module([_make_tool(name="list_users")], self._config("myapp"))
+        assert '"readOnlyHint": True' in result
+
+    def test_annotation_override_keyed_on_raw_name(self):
+        # tool_annotations uses raw tool.name, not the prefixed name
+        config = Config(
+            server_name="Test", entry_point="myapp",
+            source_dirs=[Path("src")], output_file=Path("out.py"), server_file=Path("s.py"),
+            tool_annotations={"process_data": {"readOnlyHint": True}},
+        )
+        result = generate_module([_make_tool(name="process_data")], config)
+        assert '"readOnlyHint": True' in result
+
+    def test_generated_source_valid_python(self):
+        for ep in ("myapp", "my-app", "my.cli"):
+            result = generate_module([_make_tool(name="greet")], self._config(ep))
+            ast.parse(result)

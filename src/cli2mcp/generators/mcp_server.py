@@ -1,6 +1,7 @@
 """Renders the output MCP tools module and server scaffold from ToolDef objects."""
 from __future__ import annotations
 
+import re
 import textwrap
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -113,6 +114,31 @@ def _build_direct_import_kwargs(params: list[ParamDef], has_context: bool = Fals
     return ", ".join(f"{p.name}={p.name}" for p in visible)
 
 
+_READ_PREFIXES = {"list", "get", "show", "describe", "read", "fetch", "search", "find"}
+_DESTRUCTIVE_PREFIXES = {"delete", "remove", "drop", "destroy", "purge", "clear", "reset", "wipe"}
+
+
+def _tool_name(tool: "ToolDef", config: "Config") -> str:
+    """Return the effective tool name, optionally prefixed with the entry_point slug."""
+    if not config.prefix_tool_names:
+        return tool.name
+    slug = re.sub(r"[^a-z0-9]+", "_", config.entry_point.lower()).strip("_")
+    return f"{slug}_{tool.name}"
+
+
+def _infer_annotations(tool_name: str) -> dict:
+    """Infer MCP tool annotations from the tool name's first word."""
+    first_word = tool_name.split("_")[0].lower()
+    read_only = first_word in _READ_PREFIXES
+    destructive = first_word in _DESTRUCTIVE_PREFIXES
+    return {
+        "readOnlyHint": read_only,
+        "destructiveHint": destructive,
+        "idempotentHint": read_only,
+        "openWorldHint": True,
+    }
+
+
 def _render_tool(tool: ToolDef, config: "Config") -> str:
     """Render a single @mcp.tool() function (top-level, unindented)."""
     params_sig = _format_param_sig(tool.parameters, tool.has_context)
@@ -190,10 +216,12 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
     body_lines.append("    )")
 
     # 3b: improved error message includes both stdout and stderr
+    # Return error string rather than raising — MCP errors belong in the result object,
+    # not as protocol-level exceptions.
     body_lines += [
         "    if result.returncode != 0:",
-        r'        raise RuntimeError(',
-        r'            f"CLI command failed (exit {result.returncode}):\n"',
+        r'        return (',
+        r'            f"Error (exit {result.returncode}):\n"',
         r'            f"stdout: {result.stdout}\nstderr: {result.stderr}"',
         r'        )',
     ]
@@ -225,9 +253,24 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
     # 3a: if prefer_direct_import, use the richer return type in the signature
     sig_return = return_type if config.prefer_direct_import else "str"
 
+    effective_name = _tool_name(tool, config)
+    ann = _infer_annotations(tool.name)  # infer from raw name, before prefix
+    ann.update(config.tool_annotations.get(tool.name, {}))  # overrides keyed on raw name
+    annotations_block = (
+        f"@mcp.tool(\n"
+        f'    name="{effective_name}",\n'
+        f"    annotations={{\n"
+        f'        "readOnlyHint": {ann["readOnlyHint"]},\n'
+        f'        "destructiveHint": {ann["destructiveHint"]},\n'
+        f'        "idempotentHint": {ann["idempotentHint"]},\n'
+        f'        "openWorldHint": {ann["openWorldHint"]},\n'
+        f"    }}\n"
+        f")"
+    )
+
     return (
-        f"\n\n@mcp.tool()\n"
-        f"def {tool.name}({params_sig}) -> {sig_return}:\n"
+        f"\n\n{annotations_block}\n"
+        f"def {effective_name}({params_sig}) -> {sig_return}:\n"
         f'    """{summary}\n'
         f"{param_docs_section}"
         f"    Returns\n"

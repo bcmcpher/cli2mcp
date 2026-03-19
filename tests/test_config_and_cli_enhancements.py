@@ -279,3 +279,42 @@ class TestConfigNewFields:
         config_path = _write_config(tmp_path, "capture_stderr = true")
         config = load_config(config_path)
         assert config.capture_stderr is True
+
+    def test_tool_annotations_default_empty(self, tmp_path):
+        config = load_config(_write_config(tmp_path))
+        assert config.tool_annotations == {}
+
+    def test_tool_annotations_loaded(self, tmp_path):
+        fixtures = Path(__file__).parent / "fixtures"
+        config_path = tmp_path / "pyproject.toml"
+        config_path.write_text(textwrap.dedent(f"""\
+            [tool.cli2mcp]
+            server_name = "Test"
+            entry_point = "mycli"
+            source_dirs = ["{fixtures}"]
+
+            [tool.cli2mcp.annotations.process_data]
+            readOnlyHint = true
+            idempotentHint = true
+        """))
+        config = load_config(config_path)
+        assert config.tool_annotations == {
+            "process_data": {"readOnlyHint": True, "idempotentHint": True}
+        }
+
+    def test_tool_annotations_unknown_keys_ignored(self, tmp_path):
+        fixtures = Path(__file__).parent / "fixtures"
+        config_path = tmp_path / "pyproject.toml"
+        config_path.write_text(textwrap.dedent(f"""\
+            [tool.cli2mcp]
+            server_name = "Test"
+            entry_point = "mycli"
+            source_dirs = ["{fixtures}"]
+
+            [tool.cli2mcp.annotations.my_tool]
+            readOnlyHint = true
+            unknownKey = "ignored"
+        """))
+        config = load_config(config_path)
+        assert "unknownKey" not in config.tool_annotations.get("my_tool", {})
+        assert config.tool_annotations["my_tool"] == {"readOnlyHint": True}

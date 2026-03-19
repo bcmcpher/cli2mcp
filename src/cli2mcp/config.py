@@ -33,6 +33,8 @@ class Config:
     exclude_tools: list[str] = field(default_factory=list)  # 6b: tool-name denylist
     prefer_direct_import: bool = False  # 3a: generate direct-import calls by default
     capture_stderr: bool = False  # 3b: include stderr in successful tool output
+    tool_annotations: dict[str, dict[str, bool]] = field(default_factory=dict)  # B2: per-tool annotation overrides
+    prefix_tool_names: bool = True  # C: prepend entry_point slug to generated tool names
 
 
 def load_config(config_path: Path) -> Config:
@@ -79,6 +81,15 @@ def load_config(config_path: Path) -> Config:
     prefer_direct_import = bool(section.get("prefer_direct_import", False))  # 3a
     capture_stderr = bool(section.get("capture_stderr", False))  # 3b
 
+    # B2: per-tool annotation overrides from [tool.cli2mcp.annotations.<tool_name>]
+    _ANNOTATION_KEYS = {"readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"}
+    tool_annotations: dict[str, dict[str, bool]] = {}
+    for tool_name, overrides in section.get("annotations", {}).items():
+        if isinstance(overrides, dict):
+            tool_annotations[tool_name] = {
+                k: bool(v) for k, v in overrides.items() if k in _ANNOTATION_KEYS
+            }
+
     return Config(
         server_name=server_name,
         entry_point=entry_point,
@@ -92,4 +103,6 @@ def load_config(config_path: Path) -> Config:
         exclude_tools=exclude_tools,
         prefer_direct_import=prefer_direct_import,
         capture_stderr=capture_stderr,
+        tool_annotations=tool_annotations,
+        prefix_tool_names=bool(section.get("prefix_tool_names", True)),
     )

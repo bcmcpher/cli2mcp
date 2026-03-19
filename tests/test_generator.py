@@ -88,17 +88,17 @@ def test_generate_module_contains_register_tools(sample_config, simple_tool):
 
 def test_generate_module_tool_is_indented(sample_config, simple_tool):
     result = generate_module([simple_tool], sample_config)
-    assert "    @mcp.tool()" in result
+    assert "    @mcp.tool(" in result
 
 
 def test_generate_contains_tool_decorator(sample_config, simple_tool):
     result = generate_module([simple_tool], sample_config)
-    assert "@mcp.tool()" in result
+    assert "@mcp.tool(" in result
 
 
 def test_generate_contains_function_name(sample_config, simple_tool):
     result = generate_module([simple_tool], sample_config)
-    assert "def greet(" in result
+    assert "def mytool_greet(" in result
 
 
 def test_generate_contains_required_param(sample_config, simple_tool):
@@ -154,7 +154,7 @@ def test_generate_no_params_tool(sample_config):
         framework="click",
     )
     result = generate_module([tool], sample_config)
-    assert "def ping()" in result
+    assert "def mytool_ping()" in result
 
 
 def test_generate_direct_import_comment(sample_config, simple_tool):
@@ -175,8 +175,8 @@ def test_generate_multiple_tools(sample_config, simple_tool):
         framework="click",
     )
     result = generate_module([simple_tool, tool2], sample_config)
-    assert "def greet(" in result
-    assert "def farewell(" in result
+    assert "def mytool_greet(" in result
+    assert "def mytool_farewell(" in result
 
 
 def test_generate_returns_section(sample_config, simple_tool):

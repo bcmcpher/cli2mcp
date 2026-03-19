@@ -304,8 +304,15 @@ exclude_patterns = ["test_*", "_*"]
 # subprocess_timeout = 30
 # capture_stderr = false
 # prefer_direct_import = false
+# prefix_tool_names = true
 # include_tools = []
 # exclude_tools = []
+
+# Override inferred MCP annotations for specific tools.
+# Useful when prefix-based inference is wrong (e.g. "process_data" is read-only).
+# [tool.cli2mcp.annotations.process_data]
+# readOnlyHint = true
+# idempotentHint = true
 """
 
 
