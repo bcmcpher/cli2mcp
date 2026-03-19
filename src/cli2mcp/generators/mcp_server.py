@@ -27,7 +27,7 @@ Add custom tools to mcp_server.py instead.
 """
 from __future__ import annotations
 
-import subprocess
+import asyncio
 from typing import Any
 '''
 
@@ -156,21 +156,20 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
     # 3a: use the tool's specific return type if set, otherwise fall back to str
     return_type = tool.return_type if tool.return_type else "str"
 
-    body_lines = [
-        "    result = subprocess.run(",
-        "        [",
-    ]
+    # Build the command as a list first, then unpack into create_subprocess_exec.
+    # Prefixed internal variables (_cmd, _proc, etc.) avoid shadowing user param names.
+    body_lines = ["    _cmd = ["]
 
     # Command parts
     if tool.cli_command:
-        body_lines.append(f"            {repr(tool.cli_command)},")
+        body_lines.append(f"        {repr(tool.cli_command)},")
 
     # 1d: use subcommand_path if available (nested groups), else fall back to cli_subcommand
     if tool.subcommand_path:
         for sub in tool.subcommand_path:
-            body_lines.append(f"            {repr(sub)},")
+            body_lines.append(f"        {repr(sub)},")
     elif tool.cli_subcommand and tool.cli_subcommand != tool.cli_command:
-        body_lines.append(f"            {repr(tool.cli_subcommand)},")
+        body_lines.append(f"        {repr(tool.cli_subcommand)},")
 
     # 1e: only emit non-hidden params; 1b: skip ctx param (it's not a real CLI param)
     visible_params = [p for p in tool.parameters if not p.hidden]
@@ -182,58 +181,72 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
 
     for p in positional_params:
         if p.is_multiple:
-            body_lines.append(f"            *(str(v) for v in {p.name}),")
+            body_lines.append(f"        *(str(v) for v in {p.name}),")
         else:
-            body_lines.append(f"            str({p.name}),")
+            body_lines.append(f"        str({p.name}),")
 
     for p in option_params:
         long_flags = [f for f in p.cli_flags if f.startswith("--")]
         flag = long_flags[0] if long_flags else p.cli_flags[0]
         if p.is_flag:
-            body_lines.append(f"            *([{repr(flag)}] if {p.name} else []),")
+            body_lines.append(f"        *([{repr(flag)}] if {p.name} else []),")
         elif p.is_multiple:
-            body_lines.append(f"            *(f for v in {p.name} for f in [{repr(flag)}, str(v)]),")
+            body_lines.append(f"        *(f for v in {p.name} for f in [{repr(flag)}, str(v)]),")
         else:
-            body_lines.append(f"            {repr(flag)}, str({p.name}),")
+            body_lines.append(f"        {repr(flag)}, str({p.name}),")
 
-    # 3c: per-tool timeout overrides global; fall back to config global
-    effective_timeout = tool.timeout if tool.timeout is not None else config.subprocess_timeout
-    timeout_line = f"        timeout={effective_timeout}," if effective_timeout is not None else ""
+    body_lines.append("    ]")
 
-    body_lines += [
-        "        ],",
-        "        capture_output=True,",
-        "        text=True,",
-        "        check=False,",
-    ]
-    if timeout_line:
-        body_lines.append(timeout_line)
-
-    # 3d: pipe stdin if configured
+    # asyncio.create_subprocess_exec unpacks _cmd as positional args
+    exec_lines = ["    _proc = await asyncio.create_subprocess_exec(", "        *_cmd,"]
+    # 3d: only open stdin pipe when we have a value to send
     if tool.stdin_param:
-        body_lines.append(f"        input={tool.stdin_param},")
+        exec_lines.append("        stdin=asyncio.subprocess.PIPE,")
+    exec_lines += [
+        "        stdout=asyncio.subprocess.PIPE,",
+        "        stderr=asyncio.subprocess.PIPE,",
+        "    )",
+    ]
+    body_lines += exec_lines
 
-    body_lines.append("    )")
+    # 3c: per-tool timeout overrides global; wrap communicate() in wait_for when set
+    effective_timeout = tool.timeout if tool.timeout is not None else config.subprocess_timeout
+    communicate_arg = f"input={tool.stdin_param}.encode()" if tool.stdin_param else ""
+    communicate_call = f"_proc.communicate({communicate_arg})"
 
-    # 3b: improved error message includes both stdout and stderr
-    # Return error string rather than raising — MCP errors belong in the result object,
-    # not as protocol-level exceptions.
+    if effective_timeout is not None:
+        body_lines += [
+            "    try:",
+            f"        _stdout_b, _stderr_b = await asyncio.wait_for({communicate_call}, timeout={effective_timeout})",
+            "    except asyncio.TimeoutError:",
+            "        _proc.kill()",
+            f'        return "Error: command timed out after {effective_timeout}s"',
+        ]
+    else:
+        body_lines.append(f"    _stdout_b, _stderr_b = await {communicate_call}")
+
     body_lines += [
-        "    if result.returncode != 0:",
+        "    _stdout = _stdout_b.decode()",
+        "    _stderr = _stderr_b.decode()",
+    ]
+
+    # 3b: return error string — MCP errors belong in the result object, not as exceptions
+    body_lines += [
+        "    if _proc.returncode != 0:",
         r'        return (',
-        r'            f"Error (exit {result.returncode}):\n"',
-        r'            f"stdout: {result.stdout}\nstderr: {result.stderr}"',
+        r'            f"Error (exit {_proc.returncode}):\n"',
+        r'            f"stdout: {_stdout}\nstderr: {_stderr}"',
         r'        )',
     ]
 
     # 3b: capture_stderr — include non-empty stderr in successful output
     if config.capture_stderr:
         body_lines += [
-            "    _stderr = result.stderr.strip()",
-            '    return result.stdout + (f"\\n--- stderr ---\\n{_stderr}" if _stderr else "")',
+            "    _trimmed = _stderr.strip()",
+            '    return _stdout + (f"\\n--- stderr ---\\n{_trimmed}" if _trimmed else "")',
         ]
     else:
-        body_lines.append("    return result.stdout")
+        body_lines.append("    return _stdout")
 
     body_lines += [
         "",
@@ -270,7 +283,7 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
 
     return (
         f"\n\n{annotations_block}\n"
-        f"def {effective_name}({params_sig}) -> {sig_return}:\n"
+        f"async def {effective_name}({params_sig}) -> {sig_return}:\n"
         f'    """{summary}\n'
         f"{param_docs_section}"
         f"    Returns\n"

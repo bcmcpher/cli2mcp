@@ -118,7 +118,7 @@ def test_generate_contains_flag_param(sample_config, simple_tool):
 
 def test_generate_contains_subprocess(sample_config, simple_tool):
     result = generate_module([simple_tool], sample_config)
-    assert "subprocess.run(" in result
+    assert "asyncio.create_subprocess_exec(" in result
 
 
 def test_generate_contains_cli_command(sample_config, simple_tool):

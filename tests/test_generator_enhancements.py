@@ -182,8 +182,8 @@ class TestPreferDirectImport:
 class TestStderrHandling:
     def test_error_message_includes_stdout(self, base_config):
         result = generate_module([_make_tool()], base_config)
-        assert "result.stdout" in result
-        assert "result.stderr" in result
+        assert "_stdout" in result
+        assert "_stderr" in result
 
     def test_error_includes_exit_code(self, base_config):
         result = generate_module([_make_tool()], base_config)
@@ -392,6 +392,81 @@ class TestAnnotationOverrides:
     def test_no_overrides_uses_inferred(self, base_config):
         result = generate_module([_make_tool(name="list_users")], base_config)
         assert '"readOnlyHint": True' in result
+
+
+# ---------------------------------------------------------------------------
+# E: Async subprocess
+# ---------------------------------------------------------------------------
+
+class TestAsyncSubprocess:
+    def test_import_asyncio_not_subprocess(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "import asyncio" in result
+        assert "import subprocess" not in result
+
+    def test_async_def(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "async def mytool_greet(" in result
+
+    def test_create_subprocess_exec(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "asyncio.create_subprocess_exec(" in result
+        assert "subprocess.run(" not in result
+
+    def test_cmd_list_unpacked(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "_cmd = [" in result
+        assert "*_cmd," in result
+
+    def test_stdout_stderr_pipes(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "stdout=asyncio.subprocess.PIPE" in result
+        assert "stderr=asyncio.subprocess.PIPE" in result
+
+    def test_communicate_awaited(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "await _proc.communicate()" in result
+
+    def test_bytes_decoded(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "_stdout = _stdout_b.decode()" in result
+        assert "_stderr = _stderr_b.decode()" in result
+
+    def test_timeout_uses_wait_for(self):
+        config = Config(
+            server_name="Test", entry_point="mytool",
+            source_dirs=[Path("src")], output_file=Path("out.py"),
+            server_file=Path("s.py"), subprocess_timeout=45,
+        )
+        result = generate_module([_make_tool()], config)
+        assert "asyncio.wait_for(_proc.communicate(), timeout=45)" in result
+        assert "asyncio.TimeoutError" in result
+        assert "timed out after 45s" in result
+
+    def test_no_timeout_no_wait_for(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "asyncio.wait_for(" not in result
+        assert "asyncio.TimeoutError" not in result
+
+    def test_stdin_pipe_opened(self, base_config):
+        tool = _make_tool(stdin_param="data")
+        result = generate_module([tool], base_config)
+        assert "stdin=asyncio.subprocess.PIPE" in result
+        assert "_proc.communicate(input=data.encode())" in result
+
+    def test_no_stdin_no_pipe(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "stdin=asyncio.subprocess.PIPE" not in result
+
+    def test_generated_source_valid_python(self, base_config):
+        for kwargs in (
+            {},
+            {"stdin_param": "data"},
+            {"timeout": 30},
+            {"stdin_param": "payload", "timeout": 10},
+        ):
+            result = generate_module([_make_tool(**kwargs)], base_config)
+            ast.parse(result)
 
 
 # ---------------------------------------------------------------------------
