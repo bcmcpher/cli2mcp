@@ -265,7 +265,7 @@ class TestStdinSupport:
     def test_stdin_passed_to_subprocess(self, base_config):
         tool = _make_tool(stdin_param="data")
         result = generate_module([tool], base_config)
-        assert "input=data" in result
+        assert "input=params.data" in result
 
     def test_stdin_syntax_valid(self, base_config):
         tool = _make_tool(stdin_param="payload")
@@ -452,7 +452,7 @@ class TestAsyncSubprocess:
         tool = _make_tool(stdin_param="data")
         result = generate_module([tool], base_config)
         assert "stdin=asyncio.subprocess.PIPE" in result
-        assert "_proc.communicate(input=data.encode())" in result
+        assert "_proc.communicate(input=params.data.encode())" in result
 
     def test_no_stdin_no_pipe(self, base_config):
         result = generate_module([_make_tool()], base_config)
@@ -534,3 +534,176 @@ class TestServicePrefixToolNames:
         for ep in ("myapp", "my-app", "my.cli"):
             result = generate_module([_make_tool(name="greet")], self._config(ep))
             ast.parse(result)
+
+
+# ---------------------------------------------------------------------------
+# D: Pydantic input models
+# ---------------------------------------------------------------------------
+
+class TestPydanticInputModels:
+    def test_pydantic_import_in_header(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "from pydantic import BaseModel, Field" in result
+
+    def test_literal_import_in_header(self, base_config):
+        result = generate_module([_make_tool()], base_config)
+        assert "Literal" in result
+
+    def test_model_class_generated_for_tool_with_params(self, base_config):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], base_config)
+        assert "class MytoolGreetInput(BaseModel):" in result
+
+    def test_no_model_for_no_param_tool(self, base_config):
+        tool = _make_tool()  # parameters=[]
+        result = generate_module([tool], base_config)
+        # No class definition — BaseModel is still imported in the header but not subclassed
+        assert "class MytoolGreetInput" not in result
+        assert "(BaseModel)" not in result
+
+    def test_required_param_uses_ellipsis_field(self, base_config):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], base_config)
+        assert "name: str = Field(...," in result
+
+    def test_optional_param_uses_default_field(self, base_config):
+        tool = _make_tool(parameters=[
+            ParamDef("count", ["--count"], "int", 1, False, "Count."),
+        ])
+        result = generate_module([tool], base_config)
+        assert "count: int = Field(1," in result
+
+    def test_choices_produce_literal_type(self, base_config):
+        tool = ToolDef(
+            name="export", description="Export.",
+            parameters=[
+                ParamDef("fmt", ["--fmt"], "str", "json", False, "Format.", choices=["json", "csv", "xml"]),
+            ],
+            return_description="Result.", source_module="pkg.cli", source_function="export",
+            cli_command="mytool", cli_subcommand="export", framework="click",
+        )
+        result = generate_module([tool], base_config)
+        assert "Literal['json', 'csv', 'xml']" in result
+
+    def test_stdin_param_becomes_model_field(self, base_config):
+        tool = _make_tool(stdin_param="data")
+        result = generate_module([tool], base_config)
+        assert "class MytoolGreetInput(BaseModel):" in result
+        assert "data: str = Field(" in result
+
+    def test_function_sig_uses_model_param(self, base_config):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], base_config)
+        assert "def mytool_greet(params: MytoolGreetInput)" in result
+
+    def test_body_uses_params_prefix(self, base_config):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], base_config)
+        assert "params.name" in result
+
+    def test_no_params_tool_keeps_empty_sig(self, base_config):
+        tool = _make_tool()  # parameters=[]
+        result = generate_module([tool], base_config)
+        assert "def mytool_greet()" in result
+
+    def test_model_before_register_tools(self, base_config):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], base_config)
+        model_idx = result.find("class MytoolGreetInput")
+        register_idx = result.find("def _register_tools")
+        assert model_idx < register_idx
+
+    def test_valid_python(self, base_config):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+            ParamDef("count", ["--count"], "int", 1, False, "Count."),
+        ])
+        result = generate_module([tool], base_config)
+        ast.parse(result)
+
+
+# ---------------------------------------------------------------------------
+# F: Structured output mode (prefer_direct_import=True)
+# ---------------------------------------------------------------------------
+
+class TestDirectImport:
+    def _direct_config(self, **kwargs) -> Config:
+        return Config(
+            server_name="Test",
+            entry_point="mytool",
+            source_dirs=[Path("src")],
+            output_file=Path("out.py"),
+            server_file=Path("s.py"),
+            prefer_direct_import=True,
+            **kwargs,
+        )
+
+    def test_direct_import_uses_asyncio_to_thread(self):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], self._direct_config())
+        assert "asyncio.to_thread" in result
+
+    def test_direct_import_from_statement(self):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], self._direct_config())
+        assert "from pkg.cli import greet" in result
+
+    def test_direct_import_no_subprocess(self):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], self._direct_config())
+        assert "create_subprocess_exec" not in result
+
+    def test_direct_import_kwargs_use_params_prefix(self):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], self._direct_config())
+        assert "name=params.name" in result
+
+    def test_direct_import_no_params_no_kwargs(self):
+        tool = _make_tool()  # parameters=[]
+        result = generate_module([tool], self._direct_config())
+        assert "asyncio.to_thread(greet)" in result
+
+    def test_direct_import_richer_return_type(self):
+        tool = _make_tool(return_type="dict")
+        result = generate_module([tool], self._direct_config())
+        assert "-> dict:" in result
+
+    def test_direct_import_valid_python(self):
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+            ParamDef("count", ["--count"], "int", 1, False, "Count."),
+        ])
+        result = generate_module([tool], self._direct_config())
+        ast.parse(result)
+
+    def test_direct_import_combined_with_prefix(self):
+        config = Config(
+            server_name="Test", entry_point="myapp",
+            source_dirs=[Path("src")], output_file=Path("out.py"),
+            server_file=Path("s.py"), prefer_direct_import=True,
+        )
+        tool = _make_tool(parameters=[
+            ParamDef("name", ["--name"], "str", None, True, "Name."),
+        ])
+        result = generate_module([tool], config)
+        assert "def myapp_greet(" in result
+        assert "asyncio.to_thread" in result
+        ast.parse(result)

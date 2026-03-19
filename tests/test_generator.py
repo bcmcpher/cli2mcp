@@ -108,12 +108,12 @@ def test_generate_contains_required_param(sample_config, simple_tool):
 
 def test_generate_contains_optional_param_default(sample_config, simple_tool):
     result = generate_module([simple_tool], sample_config)
-    assert "count: int = 1" in result
+    assert "count: int = Field(1," in result
 
 
 def test_generate_contains_flag_param(sample_config, simple_tool):
     result = generate_module([simple_tool], sample_config)
-    assert "loud: bool = False" in result
+    assert "loud: bool = Field(False," in result
 
 
 def test_generate_contains_subprocess(sample_config, simple_tool):
@@ -133,7 +133,7 @@ def test_generate_contains_subcommand(sample_config, simple_tool):
 
 def test_generate_contains_flag_conditional(sample_config, simple_tool):
     result = generate_module([simple_tool], sample_config)
-    assert "if loud" in result
+    assert "if params.loud" in result
 
 
 def test_generate_contains_option_flag(sample_config, simple_tool):
@@ -315,6 +315,6 @@ def test_generate_multiple_param_repeats_flag(sample_config):
     )
     result = generate_module([tool], sample_config)
     # Multi-value flag should repeat the flag for each value
-    assert "for v in tags" in result
+    assert "for v in params.tags" in result
     # Must be valid Python
     ast.parse(result)

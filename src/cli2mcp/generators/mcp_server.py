@@ -28,7 +28,9 @@ Add custom tools to mcp_server.py instead.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 '''
 
 _SERVER_SCAFFOLD = '''\
@@ -139,134 +141,94 @@ def _infer_annotations(tool_name: str) -> dict:
     }
 
 
+def _model_class_name(effective_name: str) -> str:
+    """Convert a snake_case tool name to a PascalCase Pydantic model class name."""
+    return "".join(word.capitalize() for word in effective_name.split("_")) + "Input"
+
+
+def _render_input_model(
+    tool: "ToolDef",
+    effective_name: str,
+    visible_params: list[ParamDef],
+) -> str:
+    """Render a Pydantic BaseModel class for the tool's input parameters.
+
+    Returns an empty string when the tool has no visible params and no stdin_param.
+    """
+    if not visible_params and not tool.stdin_param:
+        return ""
+
+    class_name = _model_class_name(effective_name)
+    lines = [f"class {class_name}(BaseModel):"]
+
+    for p in visible_params:
+        # D: choices map to Literal[...] for tighter LLM-visible schema
+        if p.choices:
+            literals = ", ".join(repr(c) for c in p.choices)
+            type_ann = f"Literal[{literals}]"
+        else:
+            type_ann = p.type_annotation
+
+        desc = p.description or f"The {p.name} parameter."
+        if p.choices:
+            desc = f"{desc} Choices: {', '.join(p.choices)}."
+        if p.mutually_exclusive_group:
+            desc = f"{desc} (mutually exclusive with '{p.mutually_exclusive_group}')"
+
+        if p.required:
+            field_expr = f"Field(..., description={repr(desc)})"
+        else:
+            default = p.default
+            if isinstance(default, str):
+                default_repr = repr(default)
+            elif default is None:
+                default_repr = "None"
+            else:
+                default_repr = repr(default)
+            field_expr = f"Field({default_repr}, description={repr(desc)})"
+
+        lines.append(f"    {p.name}: {type_ann} = {field_expr}")
+
+    if tool.stdin_param:
+        lines.append(
+            f"    {tool.stdin_param}: str = Field('', description='Standard input to pipe to the command.')"
+        )
+
+    return "\n".join(lines) + "\n"
+
+
 def _render_tool(tool: ToolDef, config: "Config") -> str:
     """Render a single @mcp.tool() function (top-level, unindented)."""
-    params_sig = _format_param_sig(tool.parameters, tool.has_context)
-    # 3d: append stdin parameter if configured
-    if tool.stdin_param:
-        stdin_sig = f"{tool.stdin_param}: str = ''"
-        params_sig = f"{params_sig}, {stdin_sig}" if params_sig else stdin_sig
+    # Compute visible params (non-hidden, skipping ctx if has_context)
+    visible_params = [p for p in tool.parameters if not p.hidden]
+    if tool.has_context and visible_params:
+        visible_params = visible_params[1:]
+
+    # D: use a Pydantic model for input when there are visible params or stdin
+    use_model = bool(visible_params) or bool(tool.stdin_param)
+    effective_name = _tool_name(tool, config)
+
+    if use_model:
+        model_name = _model_class_name(effective_name)
+        params_sig = f"params: {model_name}"
+        param_prefix = "params."
+    else:
+        params_sig = ""
+        param_prefix = ""
 
     param_docs_section = _format_param_docs(tool.parameters, tool.has_context)
     if param_docs_section:
         param_docs_section = "\n" + param_docs_section
 
-    kwargs_str = _build_direct_import_kwargs(tool.parameters, tool.has_context)
-
     # 3a: use the tool's specific return type if set, otherwise fall back to str
     return_type = tool.return_type if tool.return_type else "str"
-
-    # Build the command as a list first, then unpack into create_subprocess_exec.
-    # Prefixed internal variables (_cmd, _proc, etc.) avoid shadowing user param names.
-    body_lines = ["    _cmd = ["]
-
-    # Command parts
-    if tool.cli_command:
-        body_lines.append(f"        {repr(tool.cli_command)},")
-
-    # 1d: use subcommand_path if available (nested groups), else fall back to cli_subcommand
-    if tool.subcommand_path:
-        for sub in tool.subcommand_path:
-            body_lines.append(f"        {repr(sub)},")
-    elif tool.cli_subcommand and tool.cli_subcommand != tool.cli_command:
-        body_lines.append(f"        {repr(tool.cli_subcommand)},")
-
-    # 1e: only emit non-hidden params; 1b: skip ctx param (it's not a real CLI param)
-    visible_params = [p for p in tool.parameters if not p.hidden]
-    if tool.has_context and visible_params:
-        visible_params = visible_params[1:]
-
-    positional_params = [p for p in visible_params if not any(f.startswith("-") for f in p.cli_flags)]
-    option_params = [p for p in visible_params if any(f.startswith("-") for f in p.cli_flags)]
-
-    for p in positional_params:
-        if p.is_multiple:
-            body_lines.append(f"        *(str(v) for v in {p.name}),")
-        else:
-            body_lines.append(f"        str({p.name}),")
-
-    for p in option_params:
-        long_flags = [f for f in p.cli_flags if f.startswith("--")]
-        flag = long_flags[0] if long_flags else p.cli_flags[0]
-        if p.is_flag:
-            body_lines.append(f"        *([{repr(flag)}] if {p.name} else []),")
-        elif p.is_multiple:
-            body_lines.append(f"        *(f for v in {p.name} for f in [{repr(flag)}, str(v)]),")
-        else:
-            body_lines.append(f"        {repr(flag)}, str({p.name}),")
-
-    body_lines.append("    ]")
-
-    # asyncio.create_subprocess_exec unpacks _cmd as positional args
-    exec_lines = ["    _proc = await asyncio.create_subprocess_exec(", "        *_cmd,"]
-    # 3d: only open stdin pipe when we have a value to send
-    if tool.stdin_param:
-        exec_lines.append("        stdin=asyncio.subprocess.PIPE,")
-    exec_lines += [
-        "        stdout=asyncio.subprocess.PIPE,",
-        "        stderr=asyncio.subprocess.PIPE,",
-        "    )",
-    ]
-    body_lines += exec_lines
-
-    # 3c: per-tool timeout overrides global; wrap communicate() in wait_for when set
-    effective_timeout = tool.timeout if tool.timeout is not None else config.subprocess_timeout
-    communicate_arg = f"input={tool.stdin_param}.encode()" if tool.stdin_param else ""
-    communicate_call = f"_proc.communicate({communicate_arg})"
-
-    if effective_timeout is not None:
-        body_lines += [
-            "    try:",
-            f"        _stdout_b, _stderr_b = await asyncio.wait_for({communicate_call}, timeout={effective_timeout})",
-            "    except asyncio.TimeoutError:",
-            "        _proc.kill()",
-            f'        return "Error: command timed out after {effective_timeout}s"',
-        ]
-    else:
-        body_lines.append(f"    _stdout_b, _stderr_b = await {communicate_call}")
-
-    body_lines += [
-        "    _stdout = _stdout_b.decode()",
-        "    _stderr = _stderr_b.decode()",
-    ]
-
-    # 3b: return error string — MCP errors belong in the result object, not as exceptions
-    body_lines += [
-        "    if _proc.returncode != 0:",
-        r'        return (',
-        r'            f"Error (exit {_proc.returncode}):\n"',
-        r'            f"stdout: {_stdout}\nstderr: {_stderr}"',
-        r'        )',
-    ]
-
-    # 3b: capture_stderr — include non-empty stderr in successful output
-    if config.capture_stderr:
-        body_lines += [
-            "    _trimmed = _stderr.strip()",
-            '    return _stdout + (f"\\n--- stderr ---\\n{_trimmed}" if _trimmed else "")',
-        ]
-    else:
-        body_lines.append("    return _stdout")
-
-    body_lines += [
-        "",
-        f"    # Direct import alternative (uncomment if {tool.source_function} returns a value):",
-        f"    # from {tool.source_module} import {tool.source_function}",
-    ]
-    if kwargs_str:
-        body_lines.append(f"    # return {tool.source_function}({kwargs_str})")
-    else:
-        body_lines.append(f"    # return {tool.source_function}()")
-
-    body = "\n".join(body_lines)
-
-    summary = tool.description or f"Run {tool.name}"
-    return_desc = tool.return_description or "Command output"
-
-    # 3a: if prefer_direct_import, use the richer return type in the signature
     sig_return = return_type if config.prefer_direct_import else "str"
 
-    effective_name = _tool_name(tool, config)
+    # Build kwargs string for direct import (F) and fallback comment
+    direct_kwargs_str = ", ".join(
+        f"{p.name}={param_prefix}{p.name}" for p in visible_params
+    )
+
     ann = _infer_annotations(tool.name)  # infer from raw name, before prefix
     ann.update(config.tool_annotations.get(tool.name, {}))  # overrides keyed on raw name
     annotations_block = (
@@ -280,6 +242,119 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
         f"    }}\n"
         f")"
     )
+
+    summary = tool.description or f"Run {tool.name}"
+    return_desc = tool.return_description or "Command output"
+
+    # F: direct import body — call the source function via asyncio.to_thread
+    if config.prefer_direct_import:
+        if direct_kwargs_str:
+            direct_call = f"asyncio.to_thread({tool.source_function}, {direct_kwargs_str})"
+        else:
+            direct_call = f"asyncio.to_thread({tool.source_function})"
+        body_lines = [
+            f"    from {tool.source_module} import {tool.source_function}",
+            f"    return await {direct_call}",
+        ]
+        body = "\n".join(body_lines)
+    else:
+        # Subprocess body — build CLI invocation as a list, then exec asynchronously.
+        # Prefixed internal variables (_cmd, _proc, etc.) avoid shadowing user param names.
+        body_lines = ["    _cmd = ["]
+
+        if tool.cli_command:
+            body_lines.append(f"        {repr(tool.cli_command)},")
+
+        # 1d: use subcommand_path if available (nested groups), else fall back to cli_subcommand
+        if tool.subcommand_path:
+            for sub in tool.subcommand_path:
+                body_lines.append(f"        {repr(sub)},")
+        elif tool.cli_subcommand and tool.cli_subcommand != tool.cli_command:
+            body_lines.append(f"        {repr(tool.cli_subcommand)},")
+
+        positional_params = [p for p in visible_params if not any(f.startswith("-") for f in p.cli_flags)]
+        option_params = [p for p in visible_params if any(f.startswith("-") for f in p.cli_flags)]
+
+        for p in positional_params:
+            if p.is_multiple:
+                body_lines.append(f"        *(str(v) for v in {param_prefix}{p.name}),")
+            else:
+                body_lines.append(f"        str({param_prefix}{p.name}),")
+
+        for p in option_params:
+            long_flags = [f for f in p.cli_flags if f.startswith("--")]
+            flag = long_flags[0] if long_flags else p.cli_flags[0]
+            if p.is_flag:
+                body_lines.append(f"        *([{repr(flag)}] if {param_prefix}{p.name} else []),")
+            elif p.is_multiple:
+                body_lines.append(f"        *(f for v in {param_prefix}{p.name} for f in [{repr(flag)}, str(v)]),")
+            else:
+                body_lines.append(f"        {repr(flag)}, str({param_prefix}{p.name}),")
+
+        body_lines.append("    ]")
+
+        # asyncio.create_subprocess_exec unpacks _cmd as positional args
+        exec_lines = ["    _proc = await asyncio.create_subprocess_exec(", "        *_cmd,"]
+        # 3d: only open stdin pipe when we have a value to send
+        if tool.stdin_param:
+            exec_lines.append("        stdin=asyncio.subprocess.PIPE,")
+        exec_lines += [
+            "        stdout=asyncio.subprocess.PIPE,",
+            "        stderr=asyncio.subprocess.PIPE,",
+            "    )",
+        ]
+        body_lines += exec_lines
+
+        # 3c: per-tool timeout overrides global; wrap communicate() in wait_for when set
+        effective_timeout = tool.timeout if tool.timeout is not None else config.subprocess_timeout
+        communicate_arg = f"input={param_prefix}{tool.stdin_param}.encode()" if tool.stdin_param else ""
+        communicate_call = f"_proc.communicate({communicate_arg})"
+
+        if effective_timeout is not None:
+            body_lines += [
+                "    try:",
+                f"        _stdout_b, _stderr_b = await asyncio.wait_for({communicate_call}, timeout={effective_timeout})",
+                "    except asyncio.TimeoutError:",
+                "        _proc.kill()",
+                f'        return "Error: command timed out after {effective_timeout}s"',
+            ]
+        else:
+            body_lines.append(f"    _stdout_b, _stderr_b = await {communicate_call}")
+
+        body_lines += [
+            "    _stdout = _stdout_b.decode()",
+            "    _stderr = _stderr_b.decode()",
+        ]
+
+        # 3b: return error string — MCP errors belong in the result object, not as exceptions
+        body_lines += [
+            "    if _proc.returncode != 0:",
+            r'        return (',
+            r'            f"Error (exit {_proc.returncode}):\n"',
+            r'            f"stdout: {_stdout}\nstderr: {_stderr}"',
+            r'        )',
+        ]
+
+        # 3b: capture_stderr — include non-empty stderr in successful output
+        if config.capture_stderr:
+            body_lines += [
+                "    _trimmed = _stderr.strip()",
+                '    return _stdout + (f"\\n--- stderr ---\\n{_trimmed}" if _trimmed else "")',
+            ]
+        else:
+            body_lines.append("    return _stdout")
+
+        body_lines += [
+            "",
+            f"    # Direct import alternative (uncomment if {tool.source_function} returns a value):",
+            f"    # from {tool.source_module} import {tool.source_function}",
+        ]
+        if direct_kwargs_str:
+            body_lines.append(f"    # return {tool.source_function}({direct_kwargs_str})")
+        else:
+            body_lines.append(f"    # return {tool.source_function}()")
+
+        body = "\n".join(body_lines)
 
     return (
         f"\n\n{annotations_block}\n"
@@ -306,6 +381,18 @@ def generate_module(tools: list[ToolDef], config: "Config") -> str:
         timestamp=timestamp,
     )
 
+    # D: emit Pydantic input model classes at module level (before _register_tools)
+    model_blocks = []
+    for tool in tools:
+        visible_params = [p for p in tool.parameters if not p.hidden]
+        if tool.has_context and visible_params:
+            visible_params = visible_params[1:]
+        effective_name = _tool_name(tool, config)
+        model_code = _render_input_model(tool, effective_name, visible_params)
+        if model_code:
+            model_blocks.append("\n\n" + model_code)
+    models_section = "".join(model_blocks)
+
     tool_blocks = []
     for tool in tools:
         rendered = _render_tool(tool, config).strip()
@@ -321,7 +408,7 @@ def generate_module(tools: list[ToolDef], config: "Config") -> str:
         + "\n"
     )
 
-    return header + register_fn
+    return header + models_section + register_fn
 
 
 def generate_server_scaffold(config: "Config", module_stem: str) -> str:
