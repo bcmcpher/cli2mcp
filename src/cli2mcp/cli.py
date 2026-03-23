@@ -16,6 +16,7 @@ from cli2mcp.generators.mcp_server import generate_module, generate_server_scaff
 from cli2mcp.models import ToolDef
 from cli2mcp.scrapers.argparse_scraper import ArgparseScraper
 from cli2mcp.scrapers.click_scraper import ClickScraper
+from cli2mcp.scrapers.typer_scraper import TyperScraper
 
 
 def _collect_tools(
@@ -77,10 +78,14 @@ def _collect_tools(
             except OSError:
                 continue
 
-            # Try Click first, then argparse
+            # Try Click first, then Typer, then argparse
             click_scraper = ClickScraper(source_module=source_module, cli_command=config.entry_point)
+            typer_scraper = TyperScraper(source_module=source_module, cli_command=config.entry_point)
             if click_scraper.detect(tree):
                 file_tools = click_scraper.scrape_file(py_file)
+                tools.extend(file_tools)
+            elif typer_scraper.detect(tree):
+                file_tools = typer_scraper.scrape_file(py_file)
                 tools.extend(file_tools)
             else:
                 ap_scraper = ArgparseScraper(source_module=source_module, cli_command=config.entry_point)
@@ -277,19 +282,136 @@ def list_tools(config_path: Path, output_format: str) -> None:
 
 
 @main.command()
+@click.option(
+    "--config",
+    "config_path",
+    default="pyproject.toml",
+    show_default=True,
+    type=click.Path(exists=False, path_type=Path),
+    help="Path to pyproject.toml with [tool.cli2mcp] config.",
+)
+def check(config_path: Path) -> None:
+    """Verify the generated module is up to date with the CLI source.
+
+    Exits nonzero if the generated file is missing or stale. Use in CI or
+    as a pre-commit hook to catch drift between the CLI source and the
+    generated module.
+
+    \b
+    Example pre-commit config:
+      - repo: local
+        hooks:
+          - id: cli2mcp-check
+            name: Check MCP module is up to date
+            entry: cli2mcp check
+            language: system
+            files: \\.py$
+    """
+    try:
+        tools, config, _ = _collect_tools(config_path)
+    except (FileNotFoundError, ValueError) as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    dest = config.output_file
+    if not dest.exists():
+        click.echo(
+            f"Error: {dest} does not exist. Run 'cli2mcp generate' first.",
+            err=True,
+        )
+        sys.exit(1)
+
+    current = dest.read_text(encoding="utf-8")
+    expected = generate_module(tools, config)
+
+    def _strip_timestamp(content: str) -> str:
+        return "\n".join(
+            line for line in content.splitlines()
+            if not line.startswith("Generated:")
+        )
+
+    if _strip_timestamp(current) != _strip_timestamp(expected):
+        click.echo(
+            f"Error: {dest} is out of date with the CLI source. "
+            "Run 'cli2mcp generate' to update it.",
+            err=True,
+        )
+        sys.exit(1)
+
+    click.echo(f"{dest}: OK (up to date)")
+
+
+@main.command()
 @click.argument("file", type=click.Path(exists=True, path_type=Path))
-def validate(file: Path) -> None:
-    """Import-check a generated MCP server file for syntax errors."""
-    result = subprocess.run(
+@click.option(
+    "--import-check",
+    is_flag=True,
+    default=False,
+    help="Also attempt to import the module (requires mcp and pydantic to be installed).",
+)
+def validate(file: Path, import_check: bool) -> None:
+    """Check a generated MCP tools module for syntax and import errors."""
+    # Step 1: syntax check via ast.parse
+    syntax_result = subprocess.run(
         [sys.executable, "-c", f"import ast; ast.parse(open({repr(str(file))}).read())"],
         capture_output=True,
         text=True,
     )
-    if result.returncode == 0:
-        click.echo(f"{file}: OK (syntax valid)")
-    else:
-        click.echo(f"{file}: FAILED\n{result.stderr}", err=True)
+    if syntax_result.returncode != 0:
+        click.echo(f"{file}: FAILED (syntax error)\n{syntax_result.stderr}", err=True)
         sys.exit(1)
+    click.echo(f"{file}: OK (syntax valid)")
+
+    if not import_check:
+        return
+
+    # Step 2: attempt to import the module — catches missing symbols and bad imports
+    import_script = (
+        "import importlib.util, sys; "
+        f"spec = importlib.util.spec_from_file_location('_cli2mcp_validate', {repr(str(file))}); "
+        "mod = importlib.util.module_from_spec(spec); "
+        "spec.loader.exec_module(mod)"
+    )
+    import_result = subprocess.run(
+        [sys.executable, "-c", import_script],
+        capture_output=True,
+        text=True,
+    )
+    if import_result.returncode != 0:
+        click.echo(f"{file}: FAILED (import error)\n{import_result.stderr}", err=True)
+        sys.exit(1)
+    click.echo(f"{file}: OK (import valid)")
+
+
+@main.command()
+@click.argument("file", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--transport",
+    default="stdio",
+    show_default=True,
+    type=click.Choice(["stdio", "sse"]),
+    help="MCP transport protocol to use.",
+)
+def inspect(file: Path, transport: str) -> None:
+    """Launch the MCP Inspector against a generated server file.
+
+    Requires Node.js and npx to be available on PATH.
+    The server file must be executable with: python <file>
+    """
+    if shutil.which("npx") is None:
+        click.echo(
+            "Error: 'npx' not found on PATH. Install Node.js to use the MCP Inspector.",
+            err=True,
+        )
+        sys.exit(1)
+
+    cmd = ["npx", "--yes", "@modelcontextprotocol/inspector", sys.executable, str(file)]
+    click.echo(f"Launching MCP Inspector for {file} ...")
+    click.echo(f"Command: {' '.join(cmd)}\n")
+    try:
+        subprocess.run(cmd, check=False)
+    except KeyboardInterrupt:
+        pass
 
 
 _INIT_TEMPLATE = """\
@@ -354,3 +476,18 @@ def init(server_name: str, entry_point: str, source_dir: str, config_path: Path)
     else:
         config_path.write_text(section, encoding="utf-8")
         click.echo(f"Created {config_path} with [tool.cli2mcp] section.")
+
+    click.echo()
+    click.echo("Next steps:")
+    click.echo("  1. Run 'cli2mcp generate' to create the generated module and server scaffold.")
+    click.echo("  2. Add the generated module to .gitignore (it is rebuilt on each generate):")
+    click.echo("       echo 'mcp/mcp_tools_generated.py' >> .gitignore")
+    click.echo("  3. Commit mcp/mcp_server.py — it is yours to edit and will not be overwritten.")
+    click.echo("  4. Optionally add to .pre-commit-config.yaml to catch drift in CI:")
+    click.echo("       - repo: local")
+    click.echo("         hooks:")
+    click.echo("           - id: cli2mcp-check")
+    click.echo("             name: Check MCP module is up to date")
+    click.echo("             entry: cli2mcp check")
+    click.echo("             language: system")
+    click.echo("             files: \\.py$")

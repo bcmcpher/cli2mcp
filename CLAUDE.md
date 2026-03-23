@@ -21,14 +21,23 @@ pytest tests/test_click_scraper.py::test_greet_tool_params
 pytest --cov=src/cli2mcp
 
 # Exercise the CLI directly
+cli2mcp init                            # first-time setup
 cli2mcp list --config pyproject.toml
 cli2mcp generate --dry-run
-cli2mcp validate mcp_server.py
+cli2mcp check                           # CI drift detection
+cli2mcp validate mcp/mcp_tools_generated.py
+cli2mcp inspect mcp/mcp_server.py      # interactive MCP Inspector (requires npx)
 ```
 
 ## Architecture
 
-`cli2mcp` is a code-generation tool. It reads Python CLI source files via AST (never importing them), extracts CLI command metadata, and renders a standalone `mcp_server.py` that wraps each command as an `@mcp.tool()` function delegating to the CLI via `subprocess.run()`.
+`cli2mcp` is a **build dependency** for Python CLI developers. It reads CLI source files via AST (never importing them), extracts command metadata, and generates an MCP server that wraps each command as an `@mcp.tool()`. Developers add it to `[build-system].requires` so their CLI tools are automatically usable by MCP clients (Claude Code, etc.) without any changes to existing CLI code.
+
+### Two-layer output
+
+`generate` produces two files with different ownership:
+- `mcp_tools_generated.py` — always overwritten; gitignored; imported by the scaffold
+- `mcp_server.py` — written once, never overwritten; developer edits this to exclude tools or add MCP-only tools
 
 ### Data flow
 
@@ -38,7 +47,8 @@ pyproject.toml [tool.cli2mcp]
 source .py files
       ↓ scrapers/ → list[ToolDef]
       ↓ generators/mcp_server.py → str (Python source)
-      → mcp_server.py written to disk
+      → mcp_tools_generated.py  (always overwritten)
+      → mcp_server.py           (written once; user-owned scaffold)
 ```
 
 ### Core models (`models.py`)
@@ -52,7 +62,7 @@ Each scraper implements `BaseScraper` with two methods:
 - `detect(tree)` — returns `True` if the AST contains imports for that framework.
 - `scrape_file(path)` — parses the file and returns `list[ToolDef]`.
 
-`cli.py::_collect_tools` tries `ClickScraper` first; if `detect` is False, falls back to `ArgparseScraper`. Both scrapers are purely AST-based — no `exec`/`import` of user code.
+`cli.py::_collect_tools` tries scrapers in order: `ClickScraper` → `TyperScraper` → `ArgparseScraper`. All scrapers are purely AST-based — no `exec`/`import` of user code.
 
 ### Parsers (`parsers/`)
 
@@ -68,7 +78,13 @@ Each scraper implements `BaseScraper` with two methods:
 
 ### CLI (`cli.py`)
 
-Three Click subcommands — `generate`, `list`, `validate` — all sharing `_collect_tools()` for config loading and scraping.
+Six Click subcommands, all sharing `_collect_tools()` for config loading and scraping:
+- `init` — scaffolds `[tool.cli2mcp]` in `pyproject.toml` (run once)
+- `generate` — writes `mcp_tools_generated.py` + `mcp_server.py` (scaffold only)
+- `check` — verifies generated file is current; exits nonzero if stale (use in CI / pre-commit)
+- `list` — shows discovered tools without writing files
+- `validate` — syntax/import-checks a generated file
+- `inspect` — launches MCP Inspector via npx against a server file
 
 ### Tests
 

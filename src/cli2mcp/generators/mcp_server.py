@@ -128,6 +128,16 @@ def _tool_name(tool: "ToolDef", config: "Config") -> str:
     return f"{slug}_{tool.name}"
 
 
+def _agent_guidance(tool_name: str) -> str:
+    """Return a one-line agent usage hint based on the tool name's first word."""
+    first_word = tool_name.split("_")[0].lower()
+    if first_word in _READ_PREFIXES:
+        return "Use when you need to retrieve or query information. Safe to call repeatedly without side effects."
+    if first_word in _DESTRUCTIVE_PREFIXES:
+        return "Use when you want to permanently remove or destroy a resource. This action may be irreversible — confirm intent before calling."
+    return ""
+
+
 def _infer_annotations(tool_name: str) -> dict:
     """Infer MCP tool annotations from the tool name's first word."""
     first_word = tool_name.split("_")[0].lower()
@@ -245,6 +255,8 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
 
     summary = tool.description or f"Run {tool.name}"
     return_desc = tool.return_description or "Command output"
+    guidance = _agent_guidance(tool.name)
+    notes_section = f"    Notes\n    -----\n    {guidance}\n" if guidance else ""
 
     # F: direct import body — call the source function via asyncio.to_thread
     if config.prefer_direct_import:
@@ -361,6 +373,7 @@ def _render_tool(tool: ToolDef, config: "Config") -> str:
         f"async def {effective_name}({params_sig}) -> {sig_return}:\n"
         f'    """{summary}\n'
         f"{param_docs_section}"
+        f"{notes_section}"
         f"    Returns\n"
         f"    -------\n"
         f"    {sig_return}\n"
